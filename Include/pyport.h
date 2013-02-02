@@ -644,12 +644,12 @@ extern char * _getpty(int *, int, mode_t, int);
 */
 
 /*
-  All windows ports, except cygwin, are handled in PC/pyconfig.h.
+  Only MSVC windows ports is handled in PC/pyconfig.h.
 
-  Cygwin is the only other autoconf platform requiring special
+  Cygwin and Mingw are autoconf platforms requiring special
   linkage handling and it uses __declspec().
 */
-#if defined(__CYGWIN__)
+#if defined(__CYGWIN__) || defined(__MINGW32__)
 #       define HAVE_DECLSPEC_DLL
 #endif
 
@@ -660,21 +660,23 @@ extern char * _getpty(int *, int, mode_t, int);
 #                       define PyAPI_FUNC(RTYPE) __declspec(dllexport) RTYPE
 #                       define PyAPI_DATA(RTYPE) extern __declspec(dllexport) RTYPE
         /* module init functions inside the core need no external linkage */
-        /* except for Cygwin to handle embedding */
-#                       if defined(__CYGWIN__)
+        /* except for Cygwin/Mingw to handle embedding */
+#                       if defined(__CYGWIN__) || defined(__MINGW32__)
 #                               define PyMODINIT_FUNC __declspec(dllexport) PyObject*
-#                       else /* __CYGWIN__ */
+#                       else
 #                               define PyMODINIT_FUNC PyObject*
-#                       endif /* __CYGWIN__ */
+#                       endif
 #               else /* Py_BUILD_CORE */
         /* Building an extension module, or an embedded situation */
         /* public Python functions and data are imported */
-        /* Under Cygwin, auto-import functions to prevent compilation */
+        /* Under Cygwin/Mingw, auto-import functions to prevent compilation */
         /* failures similar to those described at the bottom of 4.1: */
         /* http://docs.python.org/extending/windows.html#a-cookbook-approach */
-#                       if !defined(__CYGWIN__)
+#                       if defined(__CYGWIN__) || defined(__MINGW32__)
+#                               define PyAPI_FUNC(RTYPE) RTYPE
+#                       else
 #                               define PyAPI_FUNC(RTYPE) __declspec(dllimport) RTYPE
-#                       endif /* !__CYGWIN__ */
+#                       endif
 #                       define PyAPI_DATA(RTYPE) extern __declspec(dllimport) RTYPE
         /* module init functions outside the core must be exported */
 #                       if defined(__cplusplus)
