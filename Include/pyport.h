@@ -656,7 +656,7 @@ extern char * _getpty(int *, int, mode_t, int);
 /* only get special linkage if built as shared or platform is Cygwin */
 #if defined(Py_ENABLE_SHARED) || defined(__CYGWIN__)
 #       if defined(HAVE_DECLSPEC_DLL)
-#               if defined(Py_BUILD_CORE) || defined(Py_BUILD_CORE_BUILTIN)
+#               if defined(Py_BUILD_CORE) || defined(Py_BUILD_CORE_BUILTIN || defined(Py_BUILD_CORE_MODULE)
 #                       define PyAPI_FUNC(RTYPE) __declspec(dllexport) RTYPE
 #                       define PyAPI_DATA(RTYPE) extern __declspec(dllexport) RTYPE
         /* module init functions inside the core need no external linkage */
