@@ -362,6 +362,17 @@ AC_DEFINE_UNQUOTED(_PYTHONFRAMEWORK, "${PYTHONFRAMEWORK}", [framework name])
 # Set name for machine-dependent library files
 AC_ARG_VAR([MACHDEP], [name for machine-dependent library files])
 AC_MSG_CHECKING(MACHDEP)
+case "$host" in
+*-*-mingw*)
+    # On those hosts MACHDEP is 'win', as platform-specific files
+    # go in plat-$(MACHDEP), but runtime platform is 'win32'
+    test -z "$MACHDEP" && MACHDEP=win
+
+    dnl Configuration will be based only on "host triplet" as build
+    dnl must not depend from posix-compatible environment.
+    ac_sys_system=ignore
+    ;;
+esac
 if test -z "$MACHDEP"
 then
     # avoid using uname for cross builds
@@ -410,25 +421,34 @@ fi
 
 AC_SUBST(_PYTHON_HOST_PLATFORM)
 if test "$cross_compiling" = yes; then
-	case "$host" in
-	*-*-linux*)
-		case "$host_cpu" in
-		arm*)
-			_host_cpu=arm
-			;;
-		*)
-			_host_cpu=$host_cpu
-		esac
-		;;
-	*-*-cygwin*)
-		_host_cpu=
+	case "$host_os" in
+	mingw*)
+		# As sys.platform() returns 'win32' to build python and
+		# extensions, we will use 'mingw' (in setup.py etc.)
+		_PYTHON_HOST_PLATFORM=mingw
 		;;
 	*)
-		# for now, limit cross builds to known configurations
-		MACHDEP="unknown"
-		AC_MSG_ERROR([cross build not supported for $host])
+		case "$host" in
+		*-*-linux*)
+			case "$host_cpu" in
+			arm*)
+				_host_cpu=arm
+				;;
+			*)
+				_host_cpu=$host_cpu
+			esac
+			;;
+		*-*-cygwin* | *-*-mingw*)
+			_host_cpu=
+ 			;;
+ 		*)
+			# for now, limit cross builds to known configurations
+			MACHDEP="unknown"
+			AC_MSG_ERROR([cross build not supported for $host])
+		esac
+		_PYTHON_HOST_PLATFORM="$MACHDEP${_host_cpu:+-$_host_cpu}"
+ 		;;
 	esac
-	_PYTHON_HOST_PLATFORM="$MACHDEP${_host_cpu:+-$_host_cpu}"
 fi
 
 # Some systems cannot stand _XOPEN_SOURCE being defined at all; they
