@@ -146,6 +146,21 @@ typedef int Py_ssize_clean_t;
 #   endif
 #endif
 
+#ifdef __MINGW32__
+/* Translate GCC[mingw*] platform specific defines to those
+ * used in python code.
+ */
+#if !defined(MS_WIN64) && defined(_WIN64)
+#  define MS_WIN64
+#endif
+#if !defined(MS_WIN32) && defined(_WIN32)
+#  define MS_WIN32
+#endif
+#if !defined(MS_WINDOWS) && defined(MS_WIN32)
+#  define MS_WINDOWS
+#endif
+#endif /*def __MINGW32__*/
+
 /* Py_LOCAL can be used instead of static to get the fastest possible calling
  * convention for functions that are local to a given module.
  *
