@@ -3135,6 +3135,13 @@ case $host in
   *-*-mingw*) USE_WIN32_MODULE=;;
 esac
 
+# Determine if pwdmodule should be used.
+AC_SUBST(USE_PWD_MODULE)
+USE_PWD_MODULE=
+case $host in
+  *-*-mingw*) USE_PWD_MODULE='#';;
+esac
+
 AC_SUBST(LDLAST)
 
 # Templates for things AC_DEFINEd more than once.
