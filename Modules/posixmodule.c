@@ -173,6 +173,25 @@ corresponding Unix manual entries for more information on calls.");
 #define HAVE_CWAIT      1
 #define HAVE_FSYNC      1
 #define fsync _commit
+#elif defined(__MINGW32__)	/* GCC for windows hosts */
+/* getlogin is detected by configure on mingw-w64 */
+#undef HAVE_GETLOGIN
+/*#define HAVE_GETCWD	1 - detected by configure*/
+#define HAVE_GETPPID    1
+#define HAVE_GETLOGIN   1
+#define HAVE_SPAWNV	1
+/*#define HAVE_EXECV	1 - detected by configure*/
+#define HAVE_PIPE	1
+#define HAVE_POPEN	1
+#define HAVE_SYSTEM	1
+#define HAVE_CWAIT	1
+#define HAVE_FSYNC	1
+#define fsync _commit
+#include <windows.h>
+#include <winioctl.h>
+#ifndef _MAX_ENV
+#define _MAX_ENV	32767
+#endif
 #else
 /* Unix functions that the configure script doesn't check for */
 #define HAVE_EXECV      1
@@ -289,7 +308,7 @@ extern int lstat(const char *, struct stat *);
 #endif
 #endif
 
-#ifdef _MSC_VER
+#ifdef MS_WINDOWS
 #ifdef HAVE_DIRECT_H
 #include <direct.h>
 #endif
@@ -1308,7 +1327,7 @@ win32_get_reparse_tag(HANDLE reparse_point_handle, ULONG *reparse_tag)
 */
 #include <crt_externs.h>
 static char **environ;
-#elif !defined(_MSC_VER) && ( !defined(__WATCOMC__) || defined(__QNX__) )
+#elif !defined(MS_WINDOWS) && ( !defined(__WATCOMC__) || defined(__QNX__) )
 extern char **environ;
 #endif /* !_MSC_VER */
 
