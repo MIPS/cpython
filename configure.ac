@@ -5475,8 +5475,21 @@ case $host in
     ;;
 esac
 
+dnl getpath module - default sys.path calculations
+AC_SUBST(MODULE_GETPATH)
+MODULE_GETPATH=Modules/getpath.o
+case $host in
+  *-*-mingw*)
+    dnl default sys.path calculations for windows platforms
+    MODULE_GETPATH=PC/getpathp.o
+    ;;
+esac
+
 AC_SUBST(SRCDIRS)
 SRCDIRS="Parser Objects Python Modules Modules/_io Programs"
+case $host in
+  *-*-mingw*) SRCDIRS="$SRCDIRS PC";;
+esac
 AC_MSG_CHECKING(for build directories)
 for dir in $SRCDIRS; do
     if test ! -d $dir; then

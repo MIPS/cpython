@@ -113,8 +113,23 @@
  * with a semicolon separated path prior to calling Py_Initialize.
  */
 
+#ifndef PYTHONPATH
+#  define PYTHONPATH L".\\DLLs;.\\lib"
+#endif
+
 #ifndef LANDMARK
 #define LANDMARK L"lib\\os.py"
+#endif
+
+#ifdef __MINGW32__
+
+static wchar_t *lib_python = L"lib\\python" VERSION;
+
+#  undef LANDMARK
+#  define LANDMARK L"os.py"
+
+#  define USE_POSIX_PREFIX
+
 #endif
 
 typedef struct {
@@ -301,6 +316,68 @@ static _PyInitError canonicalize(wchar_t *buffer, const wchar_t *path)
     return _Py_INIT_OK();
 }
 
+#ifdef USE_POSIX_PREFIX
+
+/* based on getpath.c but with paths relative to executable */
+/* search_for_prefix requires that path be no more than MAXPATHLEN
+   bytes long.
+   return: 1 if found; -1 if found build directory
+*/
+static int
+search_for_posix_prefix(wchar_t *argv0_path, wchar_t *home, wchar_t *_prefix)
+{
+    size_t n;
+
+    /* If PYTHONHOME is set, we believe it unconditionally */
+    if (home) {
+        wchar_t *delim;
+        wcsncpy(prefix, home, MAXPATHLEN);
+        delim = wcschr(prefix, DELIM);
+        if (delim)
+            *delim = L'\0';
+        join(prefix, lib_python);
+        join(prefix, LANDMARK);
+        return 1;
+    }
+
+    /* Check to see if argv[0] is in the build directory */
+    wcscpy(prefix, argv0_path);
+    join(prefix, L"Modules\\Setup");
+    if (exists(prefix)) {
+        wchar_t *vpath;
+        /* Check source directory if argv0_path is in the build directory. */
+        vpath = _Py_char2wchar(SRCDIR, NULL);
+        if (vpath != NULL) {
+            wcscpy(prefix, argv0_path);
+            join(prefix, vpath);
+            PyMem_Free(vpath);
+            join(prefix, L"Lib");
+            join(prefix, LANDMARK);
+            if (ismodule(prefix))
+                return -1;
+        }
+    }
+
+    /* Search from argv0_path, until root is found */
+    wcscpy(prefix, argv0_path);
+    do {
+        n = wcslen(prefix);
+        join(prefix, lib_python);
+        join(prefix, LANDMARK);
+        if (ismodule(prefix))
+            return 1;
+        prefix[n] = L'\0';
+        reduce(prefix);
+    } while (prefix[0]);
+
+    /* Configure prefix is unused */
+    (void)_prefix;
+
+    /* Fail */
+    return 0;
+}
+
+#endif /*def USE_POSIX_PREFIX */
 
 /* gotlandmark only called by search_for_prefix, which ensures
    'prefix' is null terminated in bounds.  join() ensures

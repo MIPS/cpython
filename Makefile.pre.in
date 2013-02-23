@@ -273,7 +273,7 @@ COVERAGE_REPORT_OPTIONS=--no-branch-coverage --title "CPython lcov report"
 # Modules
 MODULE_OBJS=	\
 		Modules/config.o \
-		Modules/getpath.o \
+		@MODULE_GETPATH@ \
 		Modules/main.o \
 		Modules/gcmodule.o
 
@@ -765,6 +765,7 @@ Modules/getbuildinfo.o: $(PARSER_OBJS) \
 	      -DGITBRANCH="\"`LC_ALL=C $(GITBRANCH)`\"" \
 	      -o $@ $(srcdir)/Modules/getbuildinfo.c
 
+# default sys.path calculations for posix platforms
 Modules/getpath.o: $(srcdir)/Modules/getpath.c Makefile
 	$(CC) -c $(PY_CORE_CFLAGS) -DPYTHONPATH='"$(PYTHONPATH)"' \
 		-DPREFIX='"$(prefix)"' \
@@ -772,6 +773,13 @@ Modules/getpath.o: $(srcdir)/Modules/getpath.c Makefile
 		-DVERSION='"$(VERSION)"' \
 		-DVPATH='"$(VPATH)"' \
 		-o $@ $(srcdir)/Modules/getpath.c
+
+# default sys.path calculations for windows platforms
+PC/getpathp.o: $(srcdir)/PC/getpathp.c Makefile
+	$(CC) -c $(PY_CORE_CFLAGS) \
+		-DVERSION='"$(VERSION)"' \
+		-DSRCDIR='"$(srcdir)"' \
+		-o $@ $(srcdir)/PC/getpathp.c
 
 Programs/python.o: $(srcdir)/Programs/python.c
 	$(MAINCC) -c $(PY_CORE_CFLAGS) -o $@ $(srcdir)/Programs/python.c
