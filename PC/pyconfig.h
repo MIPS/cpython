@@ -13,7 +13,7 @@ the following #defines
 
 MS_WIN64 - Code specific to the MS Win64 API
 MS_WIN32 - Code specific to the MS Win32 (and Win64) API (obsolete, this covers all supported APIs)
-MS_WINDOWS - Code specific to Windows, but all versions.
+MS_WIN64, MS_WIN32, or MS_WINDOWS - Defined later in "pyport.h"
 Py_ENABLE_SHARED - Code if the Python core is built as a DLL.
 
 Also note that neither "_M_IX86" or "_MSC_VER" should be used for
@@ -65,8 +65,6 @@ WIN32 is still required for the locale module.
 #define LONG_BIT        32
 #define WORD_BIT 32
 
-#define MS_WIN32 /* only support win32 and greater. */
-#define MS_WINDOWS
 #ifndef PYTHONPATH
 #       define PYTHONPATH L".\\DLLs;.\\lib"
 #endif
@@ -105,20 +103,14 @@ WIN32 is still required for the locale module.
 #define _Py_STRINGIZE1(X) _Py_STRINGIZE2 ## X
 #define _Py_STRINGIZE2(X) #X
 
-/* MSVC defines _WINxx to differentiate the windows platform types
-
-   Note that for compatibility reasons _WIN32 is defined on Win32
-   *and* on Win64. For the same reasons, in Python, MS_WIN32 is
-   defined on Win32 *and* Win64. Win32 only code must therefore be
-   guarded as follows:
-        #if defined(MS_WIN32) && !defined(MS_WIN64)
+/* set the COMPILER
 */
 #ifdef _WIN64
 #define MS_WIN64
 #endif
 
 /* set the COMPILER */
-#ifdef MS_WIN64
+#ifdef _WIN64
 #if defined(_M_X64) || defined(_M_AMD64)
 #if defined(__INTEL_COMPILER)
 #define COMPILER ("[ICC v." _Py_STRINGIZE(__INTEL_COMPILER) " 64 bit (amd64) with MSC v." _Py_STRINGIZE(_MSC_VER) " CRT]")
@@ -129,7 +121,7 @@ WIN32 is still required for the locale module.
 #else
 #define COMPILER _Py_PASTE_VERSION("64 bit (Unknown)")
 #endif
-#endif /* MS_WIN64 */
+#endif /* _WIN64 */
 
 /* set the version macros for the windows headers */
 /* Python 3.5+ requires Windows Vista or greater */
@@ -161,14 +153,14 @@ WIN32 is still required for the locale module.
 #endif
 
 /* Define like size_t, omitting the "unsigned" */
-#ifdef MS_WIN64
+#ifdef _WIN64
 typedef __int64 ssize_t;
 #else
 typedef _W64 int ssize_t;
 #endif
 #define HAVE_SSIZE_T 1
 
-#if defined(MS_WIN32) && !defined(MS_WIN64)
+#ifndef _WIN64
 #if defined(_M_IX86)
 #if defined(__INTEL_COMPILER)
 #define COMPILER ("[ICC v." _Py_STRINGIZE(__INTEL_COMPILER) " 32 bit (Intel) with MSC v." _Py_STRINGIZE(_MSC_VER) " CRT]")
@@ -182,7 +174,7 @@ typedef _W64 int ssize_t;
 #else
 #define COMPILER _Py_PASTE_VERSION("32 bit (Unknown)")
 #endif
-#endif /* MS_WIN32 && !MS_WIN64 */
+#endif /* !_WIN64 */
 
 typedef int pid_t;
 
@@ -281,7 +273,7 @@ Py_NO_ENABLE_SHARED to find out.  Also support MS_NO_COREDLL for b/w compat */
 #       endif /* Py_BUILD_CORE */
 #endif /* MS_COREDLL */
 
-#if defined(MS_WIN64)
+#if defined(_WIN64)
 /* maintain "win32" sys.platform for backward compatibility of Python code,
    the Win64 API should be close enough to the Win32 API to make this
    preferable */
@@ -298,7 +290,7 @@ Py_NO_ENABLE_SHARED to find out.  Also support MS_NO_COREDLL for b/w compat */
    then this is true. The uses of HAVE_LARGEFILE_SUPPORT imply that Win64
    should define this. */
 #       define HAVE_LARGEFILE_SUPPORT
-#elif defined(MS_WIN32)
+#else
 #       define PLATFORM "win32"
 #       define HAVE_LARGEFILE_SUPPORT
 #       define SIZEOF_VOID_P 4
@@ -318,8 +310,6 @@ Py_NO_ENABLE_SHARED to find out.  Also support MS_NO_COREDLL for b/w compat */
 #       define Py_DEBUG
 #endif
 
-
-#ifdef MS_WIN32
 
 #define SIZEOF_SHORT 2
 #define SIZEOF_INT 4
@@ -341,8 +331,6 @@ Py_NO_ENABLE_SHARED to find out.  Also support MS_NO_COREDLL for b/w compat */
 #define Py_LL(x) x##I64
 #endif  /* _MSC_VER > 1300  */
 #endif  /* _MSC_VER */
-
-#endif
 
 /* define signed and unsigned exact-width 32-bit and 64-bit types, used in the
    implementation of Python integers. */

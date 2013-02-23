@@ -161,6 +161,26 @@ typedef int Py_ssize_clean_t;
 #endif
 #endif /*def __MINGW32__*/
 
+/* Translate Windows-specific defines to those used in Python code:
+ * MS_WIN64 - Code specific to the MS Win64 API
+ * MS_WIN32 - Code specific to the MS Win32 (and Win64) API (obsolete, this covers all supported APIs)
+ * MS_WINDOWS - Code specific to Windows, but all versions.
+
+MSVC defines _WINxx to differentiate the windows platform types.
+Note that for compatibility reasons _WIN32 is defined on Win32
+*and* on Win64. For the same reasons, in Python, MS_WIN32 is
+defined on Win32 *and* Win64. Win32 only code must therefore be
+guarded as follows:
+	#if defined(MS_WIN32) && !defined(MS_WIN64)
+*/
+#ifdef _WIN64
+#   define MS_WIN64
+#endif
+#ifdef _WIN32
+#   define MS_WIN32 /* only support win32 and greater. */
+#   define MS_WINDOWS
+#endif
+
 /* Py_LOCAL can be used instead of static to get the fastest possible calling
  * convention for functions that are local to a given module.
  *
