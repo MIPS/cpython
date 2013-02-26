@@ -1224,6 +1224,13 @@ if test $enable_shared = "yes"; then
 	;;
 
   esac
+  case $host in
+    *-*-mingw*)
+        LDLIBRARY='libpython$(LDVERSION).dll.a'
+        DLLLIBRARY='libpython$(LDVERSION).dll'
+        BLDLIBRARY='-L. -lpython$(LDVERSION)'
+        ;;
+  esac
 else # shared is disabled
   PY_ENABLE_SHARED=0
   case $ac_sys_system in
@@ -1231,6 +1238,10 @@ else # shared is disabled
           BLDLIBRARY='$(LIBRARY)'
           LDLIBRARY='libpython$(LDVERSION).dll.a'
           ;;
+  esac
+  case $host in
+    *-*-mingw*)
+          LDLIBRARY='libpython$(LDVERSION).a';;
   esac
 fi
 
@@ -2765,6 +2776,12 @@ then
 		LDSHARED="gcc -shared -Wl,--enable-auto-image-base"
 		LDCXXSHARED="g++ -shared -Wl,--enable-auto-image-base";;
 	*)	LDSHARED="ld";;
+	esac
+	case $host in
+	*-*-mingw*)
+		LDSHARED='$(CC) -shared -Wl,--enable-auto-image-base'
+		LDCXXSHARED='$(CXX) -shared -Wl,--enable-auto-image-base'
+		;;
 	esac
 fi
 AC_MSG_RESULT($LDSHARED)
@@ -5563,6 +5580,13 @@ case $host in
   *-*-mingw*)
     dnl default sys.path calculations for windows platforms
     MODULE_GETPATH=PC/getpathp.o
+    ;;
+esac
+
+case $host in
+  *-*-mingw*)
+    dnl Workaround for setup.py logic
+    CPPFLAGS="$CPPFLAGS -I."
     ;;
 esac
 
