@@ -1041,6 +1041,10 @@ calculate_path_impl(const _PyCoreConfig *core_config,
                     PyCalculatePath *calculate, _PyPathConfig *config)
 {
     _PyInitError err;
+#ifdef USE_EXEC_PREFIX
+     int pfound;
+     int efound;
+#endif
 
     err = get_dll_path(calculate, config);
     if (_Py_INIT_FAILED(err)) {
@@ -1066,6 +1070,15 @@ calculate_path_impl(const _PyCoreConfig *core_config,
 
     calculate_pyvenv_file(calculate);
 
+#ifdef USE_EXEC_PREFIX
+    efound = search_for_exec_prefix(argv0_path, pythonhome, NULL);
+    if (!efound) {
+        wcsncpy(exec_prefix, argv0_path, MAXPATHLEN);
+        reduce(exec_prefix);
+        join(exec_prefix, lib_python);
+        join(exec_prefix, L"lib-dynload");
+    }
+#endif
     /* Calculate zip archive path from DLL or exe path */
     change_ext(calculate->zip_path,
                config->dll_path[0] ? config->dll_path : config->program_full_path,
