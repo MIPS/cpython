@@ -746,6 +746,20 @@ ffi_type *_ctypes_get_ffi_type(PyObject *obj)
     return &dict->ffi_type_pointer;
 }
 
+#undef USE_PYFFI_DELTA
+#ifdef MS_WIN32
+#ifdef X86_ANY
+/* NOTE:
+ * - Standard library does not calculate stack pointer difference
+ *   unlike python specific for MSVC source.
+ * - As X86_ANY is defined in standard libffi only we will use as flag
+ *   to distinguish between standard and customized sources.
+ */
+#else
+/* use customized python libffi source */
+#  define USE_PYFFI_DELTA
+#endif
+#endif
 
 /*
  * libffi uses:
@@ -773,7 +787,9 @@ static int _call_function_pointer(int flags,
     ffi_cif cif;
     int cc;
 #ifdef MS_WIN32
+#ifdef USE_PYFFI_DELTA
     int delta;
+#endif /* USE_PYFFI_DELTA */
 #ifndef DONT_USE_SEH
     DWORD dwExceptionCode = 0;
     EXCEPTION_RECORD record;
@@ -822,7 +838,9 @@ static int _call_function_pointer(int flags,
 #ifndef DONT_USE_SEH
     __try {
 #endif
+#ifdef USE_PYFFI_DELTA
         delta =
+#endif /* USE_PYFFI_DELTA */
 #endif
                 ffi_call(&cif, (void *)pProc, resmem, avalues);
 #ifdef MS_WIN32
@@ -854,6 +872,7 @@ static int _call_function_pointer(int flags,
         return -1;
     }
 #endif
+#ifdef USE_PYFFI_DELTA
 #ifdef MS_WIN64
     if (delta != 0) {
         PyErr_Format(PyExc_RuntimeError,
@@ -883,6 +902,7 @@ static int _call_function_pointer(int flags,
         return -1;
     }
 #endif
+#endif /* USE_PYFFI_DELTA */
 #endif
     if ((flags & FUNCFLAG_PYTHONAPI) && PyErr_Occurred())
         return -1;

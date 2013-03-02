@@ -2027,6 +2027,8 @@ class PyBuildExt(build_ext):
         ext_test = Extension('_ctypes_test',
                      sources=['_ctypes/_ctypes_test.c'],
                      libraries=['m'])
+        if host_platform.startswith(('mingw', 'win')):
+            ext_test.libraries.extend(['oleaut32'])
         self.extensions.extend([ext, ext_test])
 
         if host_platform == 'darwin':
@@ -2054,6 +2056,8 @@ class PyBuildExt(build_ext):
         if ffi_inc and ffi_lib:
             ext.include_dirs.extend(ffi_inc)
             ext.libraries.append(ffi_lib)
+            if host_platform.startswith(('mingw', 'win')):
+                ext.libraries.extend(['ole32', 'oleaut32', 'uuid'])
             self.use_system_libffi = True
 
         if sysconfig.get_config_var('HAVE_LIBDL'):
