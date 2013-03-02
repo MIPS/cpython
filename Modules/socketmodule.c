@@ -395,6 +395,12 @@ remove_unusable_flags(PyObject *m)
   /* Do not include addrinfo.h for MSVC7 or greater. 'addrinfo' and
    * EAI_* constants are defined in (the already included) ws2tcpip.h.
    */
+#elif defined(__MINGW32__)
+  /* Do not include addrinfo.h as minimum supported version is
+   * _WIN32_WINNT >= WindowsXP(0x0501)
+   */
+#  define HAVE_GETADDRINFO
+#  define HAVE_GETNAMEINFO
 #else
 #  include "addrinfo.h"
 #endif
