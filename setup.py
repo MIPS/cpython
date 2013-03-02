@@ -1632,7 +1632,7 @@ class PyBuildExt(build_ext):
             macros = dict()
             libraries = ['rt']
 
-        if host_platform == 'win32':
+        if host_platform.startswith(('mingw', 'win')):
             multiprocessing_srcs = [ '_multiprocessing/multiprocessing.c',
                                      '_multiprocessing/semaphore.c',
                                    ]
@@ -1644,8 +1644,12 @@ class PyBuildExt(build_ext):
                 sysconfig.get_config_var('POSIX_SEMAPHORES_NOT_ENABLED')):
                 multiprocessing_srcs.append('_multiprocessing/semaphore.c')
 
+        multiprocessing_libs = []
+        if host_platform.startswith(('mingw', 'win')):
+            multiprocessing_libs += ['ws2_32']
         exts.append ( Extension('_multiprocessing', multiprocessing_srcs,
                                 define_macros=list(macros.items()),
+                                libraries=multiprocessing_libs,
                                 include_dirs=["Modules/_multiprocessing"]))
         # End multiprocessing
 
