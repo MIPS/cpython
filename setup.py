@@ -786,7 +786,11 @@ class PyBuildExt(build_ext):
             missing.append('spwd')
 
         # select(2); not on ancient System V
-        exts.append( Extension('select', ['selectmodule.c']) )
+        select_libs = []
+        if host_platform.startswith(('mingw', 'win')):
+            select_libs += ['ws2_32']
+        exts.append( Extension('select', ['selectmodule.c'],
+                               libraries=select_libs) )
 
         # Fred Drake's interface to the Python parser
         exts.append( Extension('parser', ['parsermodule.c']) )
