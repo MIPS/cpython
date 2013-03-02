@@ -1369,7 +1369,7 @@ class PyBuildExt(build_ext):
             missing.append('_gdbm')
 
         # Unix-only modules
-        if host_platform != 'win32':
+        if not host_platform.startswith(('mingw', 'win')):
             # Steen Lumholt's termios module
             exts.append( Extension('termios', ['termios.c']) )
             # Jeremy Hylton's rlimit interface
