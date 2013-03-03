@@ -773,11 +773,20 @@ class PyBuildExt(build_ext):
         if (config_h_vars.get('FLOCK_NEEDS_LIBBSD', False)):
             # May be necessary on AIX for flock function
             libs = ['bsd']
-        exts.append( Extension('fcntl', ['fcntlmodule.c'], libraries=libs) )
+        if not host_platform.startswith(('mingw', 'win')):
+            exts.append( Extension('fcntl', ['fcntlmodule.c'], libraries=libs) )
+        else:
+            missing.append('fcntl')
         # pwd(3)
-        exts.append( Extension('pwd', ['pwdmodule.c']) )
+        if not host_platform.startswith(('mingw', 'win')):
+            exts.append( Extension('pwd', ['pwdmodule.c']) )
+        else:
+            missing.append('pwd')
         # grp(3)
-        exts.append( Extension('grp', ['grpmodule.c']) )
+        if not host_platform.startswith(('mingw', 'win')):
+            exts.append( Extension('grp', ['grpmodule.c']) )
+        else:
+            missing.append('grp')
         # spwd, shadow passwords
         if (config_h_vars.get('HAVE_GETSPNAM', False) or
                 config_h_vars.get('HAVE_GETSPENT', False)):
@@ -800,7 +809,10 @@ class PyBuildExt(build_ext):
 
         # Lance Ellinghaus's syslog module
         # syslog daemon interface
-        exts.append( Extension('syslog', ['syslogmodule.c']) )
+        if not host_platform.startswith(('mingw', 'win')):
+            exts.append( Extension('syslog', ['syslogmodule.c']) )
+        else:
+            missing.append('syslog')
 
         # Fuzz tests.
         exts.append( Extension(
@@ -910,17 +922,23 @@ class PyBuildExt(build_ext):
 
         # crypt module.
 
-        if self.compiler.find_library_file(lib_dirs, 'crypt'):
-            libs = ['crypt']
+        if not host_platform.startswith(('mingw', 'win')):
+            if self.compiler.find_library_file(lib_dirs, 'crypt'):
+                libs = ['crypt']
+            else:
+                libs = []
+            exts.append( Extension('_crypt', ['_cryptmodule.c'], libraries=libs) )
         else:
-            libs = []
-        exts.append( Extension('_crypt', ['_cryptmodule.c'], libraries=libs) )
+            missing.append('_crypt')
 
         # CSV files
         exts.append( Extension('_csv', ['_csv.c']) )
 
         # POSIX subprocess module helper.
-        exts.append( Extension('_posixsubprocess', ['_posixsubprocess.c']) )
+        if not host_platform.startswith(('mingw', 'win')):
+            exts.append( Extension('_posixsubprocess', ['_posixsubprocess.c']) )
+        else:
+            missing.append('_posixsubprocess')
 
         # socket(2)
         socket_libs = []
