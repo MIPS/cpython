@@ -1006,6 +1006,16 @@ class PyBuildExt(build_ext):
         min_db_ver = (3, 3)
         db_setup_debug = False   # verbose debug prints from this script?
 
+        # Modules with some Windows dependencies:
+        if host_platform.startswith(('mingw', 'win')):
+            srcdir = sysconfig.get_config_var('srcdir')
+            pc_srcdir = os.path.abspath(os.path.join(srcdir, 'PC'))
+
+            exts.append( Extension('msvcrt', [os.path.join(pc_srcdir, p)
+                for p in ['msvcrtmodule.c']]) )
+
+            exts.append( Extension('_winapi', ['_winapi.c']) )
+
         def allow_db_ver(db_ver):
             """Returns a boolean if the given BerkeleyDB version is acceptable.
 
