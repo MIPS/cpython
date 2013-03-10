@@ -2252,6 +2252,8 @@ class PyBuildExt(build_ext):
             ssl_incs.extend(krb5_h)
 
         if config_vars.get("HAVE_X509_VERIFY_PARAM_SET1_HOST"):
+            if host_platform.startswith(('mingw', 'win')):
+                openssl_libs += ['ws2_32']
             ssl_ext = Extension(
                 '_ssl', ['_ssl.c'],
                 include_dirs=openssl_includes,
