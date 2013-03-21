@@ -299,6 +299,12 @@ def getusersitepackages():
     if USER_SITE is None:
         USER_SITE = _get_path(userbase)
 
+    if sys.platform == 'win32':
+        from sysconfig import _POSIX_BUILD
+        if _POSIX_BUILD:
+            USER_SITE = get_path('purelib', 'posix_user')
+            return USER_SITE
+
     return USER_SITE
 
 def addusersitepackages(known_paths):
@@ -328,12 +334,13 @@ def getsitepackages(prefixes=None):
     if prefixes is None:
         prefixes = PREFIXES
 
+    from sysconfig import _POSIX_BUILD
     for prefix in prefixes:
         if not prefix or prefix in seen:
             continue
         seen.add(prefix)
 
-        if os.sep == '/':
+        if _POSIX_BUILD:
             sitepackages.append(os.path.join(prefix, "lib",
                                         "python%d.%d" % sys.version_info[:2],
                                         "site-packages"))
