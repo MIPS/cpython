@@ -16,6 +16,25 @@
 #include "structmember.h"
 #include "windows.h"
 
+#ifndef SIZEOF_HKEY
+/* used only here */
+#if defined(MS_WIN64)
+#  define SIZEOF_HKEY 8
+#elif defined(MS_WIN32)
+#  define SIZEOF_HKEY 4
+#else
+#  error "SIZEOF_HKEY is not defined"
+#endif
+#endif
+
+#ifndef REG_LEGAL_CHANGE_FILTER
+#define REG_LEGAL_CHANGE_FILTER        (\
+          REG_NOTIFY_CHANGE_NAME       |\
+          REG_NOTIFY_CHANGE_ATTRIBUTES |\
+          REG_NOTIFY_CHANGE_LAST_SET   |\
+          REG_NOTIFY_CHANGE_SECURITY   )
+#endif
+
 static BOOL PyHKEY_AsHKEY(PyObject *ob, HKEY *pRes, BOOL bNoneOK);
 static BOOL clinic_HKEY_converter(PyObject *ob, void *p);
 static PyObject *PyHKEY_FromHKEY(HKEY h);
@@ -978,6 +997,10 @@ winreg_DeleteKeyEx_impl(PyObject *module, HKEY key,
                         int reserved)
 /*[clinic end generated code: output=52a1c8b374ebc003 input=711d9d89e7ecbed7]*/
 {
+#ifdef KEY_WOW64_64KEY
+/* KEY_WOW64_64KEY is defined for _WIN32_WINNT >= 0x0502,
+ * i.e. Windows Server 2003 with SP1, Windows XP with SP2
+ * and not supported on w2k. */
     HMODULE hMod;
     typedef LONG (WINAPI *RDKEFunc)(HKEY, const wchar_t*, REGSAM, int);
     RDKEFunc pfn = NULL;
@@ -1001,6 +1024,11 @@ winreg_DeleteKeyEx_impl(PyObject *module, HKEY key,
     if (rc != ERROR_SUCCESS)
         return PyErr_SetFromWindowsErrWithFunction(rc, "RegDeleteKeyEx");
     Py_RETURN_NONE;
+#else /*def KEY_WOW64_64KEY*/
+    PyErr_SetString(PyExc_NotImplementedError,
+                    "not implemented on this platform");
+    return NULL;
+#endif
 }
 
 /*[clinic input]
