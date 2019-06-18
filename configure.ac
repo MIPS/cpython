@@ -340,6 +340,9 @@ then
 	*-*-cygwin*)
 		ac_sys_system=Cygwin
 		;;
+	*-*-mingw*)
+		ac_sys_system=MINGW
+		;;
 	*)
 		# for now, limit cross builds to known configurations
 		MACHDEP="unknown"
@@ -364,6 +367,7 @@ then
     case $MACHDEP in
 	linux*) MACHDEP="linux2";;
 	cygwin*) MACHDEP="cygwin";;
+	mingw*) MACHDEP="win";;
 	darwin*) MACHDEP="darwin";;
 	atheos*) MACHDEP="atheos";;
         irix646) MACHDEP="irix6";;
@@ -383,7 +387,7 @@ if test "$cross_compiling" = yes; then
 			_host_cpu=$host_cpu
 		esac
 		;;
-	*-*-cygwin*)
+	*-*-cygwin*|*-*-mingw*)
 		_host_cpu=
 		;;
 	*)
@@ -510,6 +514,14 @@ then
         MACHDEP=`echo "${MACHDEP}${SGI_ABI}" | sed 's/ *//g'`
 fi
 AC_MSG_RESULT($MACHDEP)
+
+AC_MSG_CHECKING([for init system calls])
+AC_SUBST(INITSYS)
+case $host in
+  *-*-mingw*)	INITSYS=nt;;
+  *)		INITSYS=posix;;
+esac
+AC_MSG_RESULT([$INITSYS])
 
 AC_SUBST(PLATDIR)
 PLATDIR=plat-$MACHDEP
@@ -861,7 +873,7 @@ AC_ARG_ENABLE(shared,
 if test -z "$enable_shared"
 then 
   case $ac_sys_system in
-  CYGWIN* | atheos*)
+  CYGWIN* | atheos* | MINGW*)
     enable_shared="yes";;
   *)
     enable_shared="no";;
@@ -915,6 +927,10 @@ if test $enable_shared = "yes"; then
           ;;
     CYGWIN*)
           LDLIBRARY='libpython$(VERSION).dll.a'
+          DLLLIBRARY='libpython$(VERSION).dll'
+          ;;
+    MINGW*)
+          LDLIBRARY='libpython$(VERSION).a'
           DLLLIBRARY='libpython$(VERSION).dll'
           ;;
     SunOS*)
@@ -973,6 +989,10 @@ else # shared is disabled
           BLDLIBRARY='$(LIBRARY)'
           LDLIBRARY='libpython$(VERSION).dll.a'
           ;;
+    MINGW*)
+          BLDLIBRARY='$(LIBRARY)'
+          LDLIBRARY='libpython$(VERSION).a'
+          ;;
   esac
 fi
 
@@ -1030,7 +1050,7 @@ AC_SUBST(LN)
 if test -z "$LN" ; then
 	case $ac_sys_system in
 		BeOS*) LN="ln -s";;
-		CYGWIN*) LN="ln -s";;
+		CYGWIN*|MINGW*) LN="ln -s";;
 		atheos*) LN="ln -s";;
 		*) LN=ln;;
 	esac
@@ -1739,7 +1759,8 @@ sys/param.h sys/poll.h sys/random.h sys/select.h sys/socket.h sys/statvfs.h sys/
 sys/termio.h sys/time.h \
 sys/times.h sys/types.h sys/un.h sys/utsname.h sys/wait.h pty.h libutil.h \
 sys/resource.h netpacket/packet.h sysexits.h bluetooth.h \
-bluetooth/bluetooth.h linux/tipc.h spawn.h util.h alloca.h sys/sysmacros.h)
+bluetooth/bluetooth.h linux/tipc.h spawn.h util.h alloca.h sys/sysmacros.h \
+winsock2.h)
 AC_HEADER_DIRENT
 AC_HEADER_MAJOR
 
@@ -1875,6 +1896,11 @@ AC_CHECK_SIZEOF(float, 4)
 AC_CHECK_SIZEOF(double, 8)
 AC_CHECK_SIZEOF(fpos_t, 4)
 AC_CHECK_SIZEOF(size_t, 4)
+case $ac_sys_system in
+     MINGW*)
+	  # Fix mismatch in size of pid_t vs. Windows process handles
+          ac_cv_sizeof_pid_t=4;;
+esac
 AC_CHECK_SIZEOF(pid_t, 4)
 
 AC_MSG_CHECKING(for long long support)
@@ -2129,7 +2155,7 @@ then
 	  		*)    SO=.sl;;
 		esac
 		;;
-	CYGWIN*)   SO=.dll;;
+	CYGWIN*|MINGW*)   SO=.dll;;
 	*)	   SO=.so;;
 	esac
 else
@@ -2287,6 +2313,9 @@ then
 	CYGWIN*)
 		LDSHARED="gcc -shared -Wl,--enable-auto-image-base"
 		LDCXXSHARED="g++ -shared -Wl,--enable-auto-image-base";;
+	MINGW*)
+		LDSHARED="$CC $CFLAGS -shared -Wl,--enable-auto-image-base"
+		LDCXXSHARED="$CXX $CXXFLAGS -shared -Wl,--enable-auto-image-base";;
 	atheos*)
 		LDSHARED="gcc -shared"
 		LDCXXSHARED="g++ -shared";;
@@ -2381,6 +2410,9 @@ then
 		then
 			LINKFORSHARED='-Wl,--out-implib=$(LDLIBRARY)'
 		fi;;
+	MINGW*)
+		LINKFORSHARED='-Wl,--out-implib=$(LDLIBRARY)'
+		;;
 	QNX*)
 		# -Wl,-E causes the symbols to be added to the dynamic
 		# symbol table so that they can be found when a module
@@ -2398,7 +2430,7 @@ AC_MSG_CHECKING(CFLAGSFORSHARED)
 if test ! "$LIBRARY" = "$LDLIBRARY"
 then
 	case $ac_sys_system in
-	CYGWIN*)
+	CYGWIN*|MINGW*)
 		# Cygwin needs CCSHARED when building extension DLLs
 		# but not when building the interpreter DLL.
 		CFLAGSFORSHARED='';;
@@ -2816,6 +2848,16 @@ if test "$posix_threads" = "yes"; then
       AC_CHECK_FUNCS(pthread_atfork)
 fi
 
+AC_SUBST(BUILDIN_WIN32_MODULE)
+BUILDIN_WIN32_MODULE='#'
+case $host in
+  *-*-mingw*)
+    # On win32 host(mingw build MSYS environment) site.py fail to load
+    # if _functools is not build-in by reason of dependency:
+    #   setup->site->locale->functools&operator
+    BUILDIN_WIN32_MODULE=
+  ;;
+esac
 
 # Check for enable-ipv6
 AH_TEMPLATE(ENABLE_IPV6, [Define if --enable-ipv6 is specified])
@@ -3108,6 +3150,11 @@ fi
 
 AC_SUBST(MACHDEP_OBJS)
 AC_MSG_CHECKING(MACHDEP_OBJS)
+case $host in
+  *-*-mingw*)
+    extra_machdep_objs="PC/dl_nt.o PC/import_nt.o"
+    ;;
+esac
 if test -z "$MACHDEP_OBJS"
 then
 	MACHDEP_OBJS=$extra_machdep_objs
@@ -3550,6 +3597,16 @@ else
 fi]))
 fi
 
+case $host in
+  *-*-mingw*)
+  #FIXME: mingw "w32api" define getaddinfo if WINVER >= 0x501, i.e. XP or greater.
+  #TODO: mingw require additional check.
+  #NOTE: above check is not correct for windows platforms.
+  #  ac_cv_buggy_getaddrinfo=no
+    :
+    ;;
+esac
+
 AC_MSG_RESULT($ac_cv_buggy_getaddrinfo)
 
 if test $have_getaddrinfo = no -o "$ac_cv_buggy_getaddrinfo" = yes
@@ -3813,6 +3870,7 @@ AC_SUBST(LIBM)
 case $ac_sys_system in
 Darwin) ;;
 BeOS) ;;
+MINGW) ;;
 *) LIBM=-lm
 esac
 AC_MSG_CHECKING(for --with-libm=STRING)
@@ -4689,6 +4747,13 @@ CPPFLAGS=$ac_save_cppflags
 
 AC_MSG_NOTICE([checking for device files])
 
+case $host in
+  *-*-mingw*)
+    ac_cv_file__dev_ptmx=ignore #NOTE: under MSYS environment device exist
+    ac_cv_file__dev_ptc=no
+    ;;
+esac
+
 dnl NOTE: Inform user how to proceed with files when cross compiling.
 if test "x$cross_compiling" = xyes; then
   if test "${ac_cv_file__dev_ptmx+set}" != set; then
@@ -4854,8 +4919,23 @@ do
   THREADHEADERS="$THREADHEADERS \$(srcdir)/$h"
 done
 
+# FIXME: in cross-compilation env. (mingw on linux) how to select correct compiler ?
+# The current py-code will created modules with .so suffix and environment
+# variable setting SO=$(SO) don't help
+# see output of: python setup.py build --help-compiler
+AC_SUBST(PYMOD_BUILDOPT)
+case $host in
+*-*-mingw*)
+	PYMOD_BUILDOPT="--compiler mingw32"
+	CPPFLAGS="-I\$(srcdir)/Python -I\$(srcdir)/PC $CPPFLAGS";;
+esac
+
 AC_SUBST(SRCDIRS)
 SRCDIRS="Parser Objects Python Modules"
+case $host in
+*-*-mingw*)
+	SRCDIRS="$SRCDIRS PC";;
+esac
 AC_MSG_CHECKING(for build directories)
 for dir in $SRCDIRS; do
     if test ! -d $dir; then
@@ -4939,6 +5019,12 @@ echo "creating Modules/Setup"
 if test ! -f Modules/Setup
 then
 	cp $srcdir/Modules/Setup.dist Modules/Setup
+	case $host in
+	  *-*-mingw*)
+	    sed -i 's/=:/=;/g' Modules/Setup
+	    sed -i 's/pwd pwdmodule.c/#pwd pwdmodule.c/' Modules/Setup
+	    sed -i 's/posix posixmodule.c/nt posixmodule.c/' Modules/Setup;;
+	esac
 fi
 
 echo "creating Modules/Setup.local"

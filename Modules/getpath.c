@@ -108,7 +108,7 @@ static char prefix[MAXPATHLEN+1];
 static char exec_prefix[MAXPATHLEN+1];
 static char progpath[MAXPATHLEN+1];
 static char *module_search_path = NULL;
-static char lib_python[] = "lib/python" VERSION;
+static char pyver[] = "python" VERSION;
 
 static void
 reduce(char *dir)
@@ -173,6 +173,17 @@ isdir(char *filename)                   /* Is directory */
     return 1;
 }
 
+static int
+is_abs_path (const char *path)
+{
+#ifdef MS_WINDOWS
+  return (path[0] != '\0' && isalpha (path[0])
+	  && path[1] != '\0' && path[1] == ':'
+	  && path[2] != '\0' && path[2] == SEP);
+#else
+  return (path[0] != '\0]' && path[0] == SEP);
+#endif
+}
 
 /* Add a path component, by appending stuff to buffer.
    buffer must have at least MAXPATHLEN + 1 bytes allocated, and contain a
@@ -187,7 +198,7 @@ static void
 joinpath(char *buffer, char *stuff)
 {
     size_t n, k;
-    if (stuff[0] == SEP)
+    if (is_abs_path (stuff))
         n = 0;
     else {
         n = strlen(buffer);
@@ -208,7 +219,7 @@ joinpath(char *buffer, char *stuff)
 static void
 copy_absolute(char *path, char *p)
 {
-    if (p[0] == SEP)
+    if (is_abs_path (p))
         strcpy(path, p);
     else {
         if (!getcwd(path, MAXPATHLEN)) {
@@ -228,7 +239,7 @@ absolutize(char *path)
 {
     char buffer[MAXPATHLEN + 1];
 
-    if (path[0] == SEP)
+    if (is_abs_path (path))
         return;
     copy_absolute(buffer, path);
     strcpy(path, buffer);
@@ -250,7 +261,8 @@ search_for_prefix(char *argv0_path, char *home)
         delim = strchr(prefix, DELIM);
         if (delim)
             *delim = '\0';
-        joinpath(prefix, lib_python);
+        joinpath(prefix, "lib");
+        joinpath(prefix, pyver);
         joinpath(prefix, LANDMARK);
         return 1;
     }
@@ -273,8 +285,10 @@ search_for_prefix(char *argv0_path, char *home)
     copy_absolute(prefix, argv0_path);
     do {
         n = strlen(prefix);
-        joinpath(prefix, lib_python);
+        joinpath(prefix, "lib");
+        joinpath(prefix, pyver);
         joinpath(prefix, LANDMARK);
+
         if (ismodule(prefix))
             return 1;
         prefix[n] = '\0';
@@ -283,7 +297,8 @@ search_for_prefix(char *argv0_path, char *home)
 
     /* Look at configure's PREFIX */
     strncpy(prefix, PREFIX, MAXPATHLEN);
-    joinpath(prefix, lib_python);
+    joinpath(prefix, "lib");
+    joinpath(prefix, pyver);
     joinpath(prefix, LANDMARK);
     if (ismodule(prefix))
         return 1;
@@ -309,7 +324,8 @@ search_for_exec_prefix(char *argv0_path, char *home)
             strncpy(exec_prefix, delim+1, MAXPATHLEN);
         else
             strncpy(exec_prefix, home, MAXPATHLEN);
-        joinpath(exec_prefix, lib_python);
+	joinpath(prefix, "lib");
+	joinpath(prefix, pyver);
         joinpath(exec_prefix, "lib-dynload");
         return 1;
     }
@@ -339,7 +355,8 @@ search_for_exec_prefix(char *argv0_path, char *home)
     copy_absolute(exec_prefix, argv0_path);
     do {
         n = strlen(exec_prefix);
-        joinpath(exec_prefix, lib_python);
+	joinpath(exec_prefix, "lib");
+	joinpath(exec_prefix, pyver);
         joinpath(exec_prefix, "lib-dynload");
         if (isdir(exec_prefix))
             return 1;
@@ -349,7 +366,8 @@ search_for_exec_prefix(char *argv0_path, char *home)
 
     /* Look at configure's EXEC_PREFIX */
     strncpy(exec_prefix, EXEC_PREFIX, MAXPATHLEN);
-    joinpath(exec_prefix, lib_python);
+    joinpath(exec_prefix, "lib");
+    joinpath(exec_prefix, pyver);
     joinpath(exec_prefix, "lib-dynload");
     if (isdir(exec_prefix))
         return 1;
@@ -407,7 +425,7 @@ calculate_path(void)
       * will fail if a relative path was used. but in that case,
       * absolutize() should help us out below
       */
-     else if(0 == _NSGetExecutablePath(progpath, &nsexeclength) && progpath[0] == SEP)
+     else if(0 == _NSGetExecutablePath(progpath, &nsexeclength) && is_abs_path(progpath))
        ;
 #endif /* __APPLE__ */
         else if (path) {
@@ -437,8 +455,8 @@ calculate_path(void)
         }
         else
                 progpath[0] = '\0';
-        if (progpath[0] != SEP && progpath[0] != '\0')
-                absolutize(progpath);
+        if (!is_abs_path(progpath))
+	  absolutize(progpath);
         strncpy(argv0_path, progpath, MAXPATHLEN);
         argv0_path[MAXPATHLEN] = '\0';
 
@@ -462,7 +480,8 @@ calculate_path(void)
         */
         strncpy(argv0_path, buf, MAXPATHLEN);
         reduce(argv0_path);
-        joinpath(argv0_path, lib_python);
+	joinpath(argv0_path, "lib");
+	joinpath(argv0_path, pyver);
         joinpath(argv0_path, LANDMARK);
         if (!ismodule(argv0_path)) {
                 /* We are in the build directory so use the name of the
@@ -483,7 +502,7 @@ calculate_path(void)
         while (linklen != -1) {
             /* It's not null terminated! */
             tmpbuffer[linklen] = '\0';
-            if (tmpbuffer[0] == SEP)
+            if (is_abs_path(tmpbuffer))
                 /* tmpbuffer should never be longer than MAXPATHLEN,
                    but extra check does not hurt */
                 strncpy(argv0_path, tmpbuffer, MAXPATHLEN);
@@ -507,7 +526,8 @@ calculate_path(void)
             fprintf(stderr,
                 "Could not find platform independent libraries <prefix>\n");
         strncpy(prefix, PREFIX, MAXPATHLEN);
-        joinpath(prefix, lib_python);
+	joinpath(prefix, "lib");
+	joinpath(prefix, pyver);
     }
     else
         reduce(prefix);
@@ -520,7 +540,8 @@ calculate_path(void)
     }
     else
         strncpy(zip_path, PREFIX, MAXPATHLEN);
-    joinpath(zip_path, "lib/python00.zip");
+    joinpath(zip_path, "lib");
+    joinpath(zip_path, "python00.zip");
     bufsz = strlen(zip_path);   /* Replace "00" with version */
     zip_path[bufsz - 6] = VERSION[0];
     zip_path[bufsz - 5] = VERSION[2];

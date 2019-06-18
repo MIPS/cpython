@@ -7,7 +7,11 @@
 #include "intrcheck.h"
 
 #ifdef MS_WINDOWS
+#ifdef __MINGW32__
+#include <windows.h>
+#else
 #include <Windows.h>
+#endif
 #ifdef HAVE_PROCESS_H
 #include <process.h>
 #endif

@@ -17,6 +17,18 @@
 #include "malloc.h" /* for alloca */
 #include "windows.h"
 
+#if defined(__MINGW32__)
+_CRTIMP size_t __cdecl __MINGW_NOTHROW _mbstrlen(const char *s);
+#endif
+
+#if !defined(REG_LEGAL_CHANGE_FILTER)
+#define REG_LEGAL_CHANGE_FILTER                 \
+                (REG_NOTIFY_CHANGE_NAME          |\
+                 REG_NOTIFY_CHANGE_ATTRIBUTES    |\
+                 REG_NOTIFY_CHANGE_LAST_SET      |\
+                 REG_NOTIFY_CHANGE_SECURITY)
+#endif
+
 static BOOL PyHKEY_AsHKEY(PyObject *ob, HKEY *pRes, BOOL bNoneOK);
 static PyObject *PyHKEY_FromHKEY(HKEY h);
 static BOOL PyHKEY_Close(PyObject *obHandle);

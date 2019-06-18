@@ -525,7 +525,7 @@ sharedmods: $(BUILDPYTHON) pybuilddir.txt Modules/_math.o
 	esac; \
 	$(RUNSHARED) CC='$(CC)' LDSHARED='$(BLDSHARED)' OPT='$(OPT)' \
 		_TCLTK_INCLUDES='$(TCLTK_INCLUDES)' _TCLTK_LIBS='$(TCLTK_LIBS)' \
-		$(PYTHON_FOR_BUILD) $(srcdir)/setup.py $$quiet build
+		$(PYTHON_FOR_BUILD) $(srcdir)/setup.py $$quiet build  @PYMOD_BUILDOPT@
 
 # Build static library
 # avoid long command lines, same as LIBRARY_OBJS

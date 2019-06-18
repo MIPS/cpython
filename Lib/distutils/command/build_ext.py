@@ -19,7 +19,8 @@ from distutils.extension import Extension
 from distutils.util import get_platform
 from distutils import log
 
-if os.name == 'nt':
+# GCC(mingw): os.name is "nt" but build system is posix
+if os.name == 'nt' and sys.version.find('GCC') < 0:
     from distutils.msvccompiler import get_build_version
     MSVC_VERSION = int(get_build_version())
 
@@ -180,7 +181,8 @@ class build_ext (Command):
         # for extensions under windows use different directories
         # for Release and Debug builds.
         # also Python's library directory must be appended to library_dirs
-        if os.name == 'nt':
+        # GCC(mingw): os.name is "nt" but build system is posix
+        if os.name == 'nt' and sys.version.find('GCC') < 0:
             # the 'libs' directory is for binary installs - we assume that
             # must be the *native* platform.  But we don't really support
             # cross-compiling via a binary install anyway, so we let it go.
@@ -224,7 +226,8 @@ class build_ext (Command):
 
         # for extensions under Cygwin and AtheOS Python's library directory must be
         # appended to library_dirs
-        if sys.platform[:6] == 'cygwin' or sys.platform[:6] == 'atheos':
+        if (sys.platform[:6] == 'cygwin' or sys.platform[:6] == 'atheos'
+            or (sys.platform == 'win32' and sys.version.find('GCC') >= 0)):
             if sys.executable.startswith(os.path.join(sys.exec_prefix, "bin")):
                 # building third party extensions
                 self.library_dirs.append(os.path.join(sys.prefix, "lib",

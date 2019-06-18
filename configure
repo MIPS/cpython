@@ -626,6 +626,7 @@ ac_includes_default="\
 ac_subst_vars='LTLIBOBJS
 ENSUREPIP
 SRCDIRS
+PYMOD_BUILDOPT
 THREADHEADERS
 UNICODE_OBJS
 LIBC
@@ -640,6 +641,7 @@ TRUE
 MACHDEP_OBJS
 DYNLOADFILE
 DLINCLDIR
+BUILDIN_WIN32_MODULE
 THREADOBJ
 LDLAST
 USE_THREAD_MODULE
@@ -720,6 +722,7 @@ CONFIGURE_MACOSX_DEPLOYMENT_TARGET
 EXTRAMACHDEPPATH
 EXTRAPLATDIR
 PLATDIR
+INITSYS
 SGI_ABI
 _PYTHON_HOST_PLATFORM
 MACHDEP
@@ -3287,6 +3290,10 @@ then
 	*-*-cygwin*)
 		ac_sys_system=Cygwin
 		;;
+	*-*-mingw*)
+	    ac_sys_system=MINGW
+	    MACHDEP=win;
+		;;
 	*)
 		# for now, limit cross builds to known configurations
 		MACHDEP="unknown"
@@ -3311,6 +3318,7 @@ then
     case $MACHDEP in
 	linux*) MACHDEP="linux2";;
 	cygwin*) MACHDEP="cygwin";;
+	win*) MACHDEP="win";;
 	darwin*) MACHDEP="darwin";;
 	atheos*) MACHDEP="atheos";;
         irix646) MACHDEP="irix6";;
@@ -3330,7 +3338,7 @@ if test "$cross_compiling" = yes; then
 			_host_cpu=$host_cpu
 		esac
 		;;
-	*-*-cygwin*)
+	*-*-cygwin*|*-*-mingw*)
 		_host_cpu=
 		;;
 	*)
@@ -3465,6 +3473,16 @@ then
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MACHDEP" >&5
 $as_echo "$MACHDEP" >&6; }
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for init system calls" >&5
+$as_echo_n "checking for init system calls... " >&6; }
+
+case $host in
+  *-*-mingw*)	INITSYS=nt;;
+  *)		INITSYS=posix;;
+esac
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $INITSYS" >&5
+$as_echo "$INITSYS" >&6; }
 
 
 PLATDIR=plat-$MACHDEP
@@ -5402,7 +5420,7 @@ fi
 if test -z "$enable_shared"
 then
   case $ac_sys_system in
-  CYGWIN* | atheos*)
+  CYGWIN* | atheos* | MINGW*)
     enable_shared="yes";;
   *)
     enable_shared="no";;
@@ -5475,6 +5493,10 @@ $as_echo "#define Py_ENABLE_SHARED 1" >>confdefs.h
           LDLIBRARY='libpython$(VERSION).dll.a'
           DLLLIBRARY='libpython$(VERSION).dll'
           ;;
+    MINGW*)
+          LDLIBRARY='libpython$(VERSION).a'
+          DLLLIBRARY='libpython$(VERSION).dll'
+          ;;
     SunOS*)
 	  LDLIBRARY='libpython$(VERSION).so'
 	  BLDLIBRARY='-Wl,-R,$(LIBDIR) -L. -lpython$(VERSION)'
@@ -5530,6 +5552,10 @@ else # shared is disabled
     CYGWIN*)
           BLDLIBRARY='$(LIBRARY)'
           LDLIBRARY='libpython$(VERSION).dll.a'
+          ;;
+    MINGW*)
+          BLDLIBRARY='$(LIBRARY)'
+          LDLIBRARY='libpython$(VERSION).a'
           ;;
   esac
 fi
@@ -5949,7 +5975,7 @@ $as_echo "$MKDIR_P" >&6; }
 if test -z "$LN" ; then
 	case $ac_sys_system in
 		BeOS*) LN="ln -s";;
-		CYGWIN*) LN="ln -s";;
+		CYGWIN*|MINGW*) LN="ln -s";;
 		atheos*) LN="ln -s";;
 		*) LN=ln;;
 	esac
@@ -7084,7 +7110,8 @@ sys/param.h sys/poll.h sys/random.h sys/select.h sys/socket.h sys/statvfs.h sys/
 sys/termio.h sys/time.h \
 sys/times.h sys/types.h sys/un.h sys/utsname.h sys/wait.h pty.h libutil.h \
 sys/resource.h netpacket/packet.h sysexits.h bluetooth.h \
-bluetooth/bluetooth.h linux/tipc.h spawn.h util.h alloca.h sys/sysmacros.h
+bluetooth/bluetooth.h linux/tipc.h spawn.h util.h alloca.h sys/sysmacros.h \
+winsock2.h
 do :
   as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
 ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
@@ -7923,6 +7950,11 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
+case $ac_sys_system in
+     MINGW*)
+	  # Fix mismatch in size of pid_t vs. Windows process handles
+          ac_cv_sizeof_pid_t=4;;
+esac
 # The cast to long int works around a bug in the HP C Compiler
 # version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
 # declarations like `int a3[[(sizeof (unsigned char)) >= 0]];'.
@@ -8543,7 +8575,7 @@ then
 	  		*)    SO=.sl;;
 		esac
 		;;
-	CYGWIN*)   SO=.dll;;
+	CYGWIN*|MINGW*)   SO=.dll;;
 	*)	   SO=.so;;
 	esac
 else
@@ -8707,6 +8739,9 @@ then
 	CYGWIN*)
 		LDSHARED="gcc -shared -Wl,--enable-auto-image-base"
 		LDCXXSHARED="g++ -shared -Wl,--enable-auto-image-base";;
+	MINGW*)
+		LDSHARED="$CC $CFLAGS -shared -Wl,--enable-auto-image-base"
+		LDCXXSHARED="$CXX $CXXFLAGS -shared -Wl,--enable-auto-image-base";;
 	atheos*)
 		LDSHARED="gcc -shared"
 		LDCXXSHARED="g++ -shared";;
@@ -8805,6 +8840,9 @@ then
 		then
 			LINKFORSHARED='-Wl,--out-implib=$(LDLIBRARY)'
 		fi;;
+	MINGW*)
+		LINKFORSHARED='-Wl,--out-implib=$(LDLIBRARY)'
+		;;
 	QNX*)
 		# -Wl,-E causes the symbols to be added to the dynamic
 		# symbol table so that they can be found when a module
@@ -8824,7 +8862,7 @@ $as_echo_n "checking CFLAGSFORSHARED... " >&6; }
 if test ! "$LIBRARY" = "$LDLIBRARY"
 then
 	case $ac_sys_system in
-	CYGWIN*)
+	CYGWIN*|MINGW*)
 		# Cygwin needs CCSHARED when building extension DLLs
 		# but not when building the interpreter DLL.
 		CFLAGSFORSHARED='';;
@@ -10120,6 +10158,16 @@ done
 fi
 
 
+BUILDIN_WIN32_MODULE='#'
+case $host in
+  *-*-mingw*)
+    # On win32 host(mingw build MSYS environment) site.py fail to load
+    # if _functools is not build-in by reason of dependency:
+    #   setup->site->locale->functools&operator
+    BUILDIN_WIN32_MODULE=
+  ;;
+esac
+
 # Check for enable-ipv6
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking if --enable-ipv6 is specified" >&5
@@ -10578,6 +10626,11 @@ fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking MACHDEP_OBJS" >&5
 $as_echo_n "checking MACHDEP_OBJS... " >&6; }
+case $host in
+  *-*-mingw*)
+    extra_machdep_objs="PC/dl_nt.o PC/import_nt.o"
+    ;;
+esac
 if test -z "$MACHDEP_OBJS"
 then
 	MACHDEP_OBJS=$extra_machdep_objs
@@ -12885,6 +12938,7 @@ fi
 case $ac_sys_system in
 Darwin) ;;
 BeOS) ;;
+MINGW) ;;
 *) LIBM=-lm
 esac
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for --with-libm=STRING" >&5
@@ -14981,6 +15035,13 @@ CPPFLAGS=$ac_save_cppflags
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for device files" >&5
 $as_echo "$as_me: checking for device files" >&6;}
 
+case $host in
+  *-*-mingw*)
+    ac_cv_file__dev_ptmx=ignore #NOTE: under MSYS environment device exist
+    ac_cv_file__dev_ptc=no
+    ;;
+esac
+
 if test "x$cross_compiling" = xyes; then
   if test "${ac_cv_file__dev_ptmx+set}" != set; then
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for /dev/ptmx" >&5
@@ -15248,8 +15309,23 @@ do
   THREADHEADERS="$THREADHEADERS \$(srcdir)/$h"
 done
 
+# FIXME: in cross-compilation env. (mingw on linux) how to select correct compiler ?
+# The current py-code will created modules with .so suffix and environment
+# variable setting SO=$(SO) don't help
+# see output of: python setup.py build --help-compiler
+
+case $host in
+*-*-mingw*)
+	PYMOD_BUILDOPT="--compiler mingw32"
+	CPPFLAGS="-I\$(srcdir)/Python -I\$(srcdir)/PC $CPPFLAGS";;
+esac
+
 
 SRCDIRS="Parser Objects Python Modules"
+case $host in
+*-*-mingw*)
+	SRCDIRS="$SRCDIRS PC";;
+esac
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for build directories" >&5
 $as_echo_n "checking for build directories... " >&6; }
 for dir in $SRCDIRS; do
@@ -16673,6 +16749,12 @@ echo "creating Modules/Setup"
 if test ! -f Modules/Setup
 then
 	cp $srcdir/Modules/Setup.dist Modules/Setup
+	case $host in
+	  *-*-mingw*)
+	    sed -i 's/=:/=;/g' Modules/Setup
+	    sed -i 's/pwd pwdmodule.c/#pwd pwdmodule.c/' Modules/Setup
+	    sed -i 's/posix posixmodule.c/nt posixmodule.c/' Modules/Setup;;
+	esac
 fi
 
 echo "creating Modules/Setup.local"

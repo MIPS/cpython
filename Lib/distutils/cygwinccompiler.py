@@ -77,6 +77,8 @@ def get_msvcr():
             return ['msvcr90']
         else:
             raise ValueError("Unknown MS Compiler version %s " % msc_ver)
+    else:
+        return []
 
 
 class CygwinCCompiler (UnixCCompiler):
@@ -85,6 +87,7 @@ class CygwinCCompiler (UnixCCompiler):
     obj_extension = ".o"
     static_lib_extension = ".a"
     shared_lib_extension = ".dll"
+    dylib_lib_extension = ".dll.a"
     static_lib_format = "lib%s%s"
     shared_lib_format = "%s%s"
     exe_extension = ".exe"

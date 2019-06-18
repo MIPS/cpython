@@ -332,6 +332,7 @@ init_multiprocessing(void)
         Py_DECREF(temp); Py_DECREF(value); return; }              \
     Py_DECREF(value)
 
+#ifndef MS_WINDOWS
 #if defined(HAVE_SEM_OPEN) && !defined(POSIX_SEMAPHORES_NOT_ENABLED)
     ADD_FLAG(HAVE_SEM_OPEN);
 #endif
@@ -347,6 +348,7 @@ init_multiprocessing(void)
 #ifdef HAVE_BROKEN_SEM_UNLINK
     ADD_FLAG(HAVE_BROKEN_SEM_UNLINK);
 #endif
+#endif /*ndef MS_WINDOWS*/
     if (PyModule_AddObject(module, "flags", temp) < 0)
         return;
 }
