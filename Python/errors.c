@@ -4,6 +4,10 @@
 #include "Python.h"
 #include "internal/pystate.h"
 
+#ifdef __MINGW32__
+#define MS_WINDOWS
+#endif
+
 #ifndef __STDC__
 #ifndef MS_WINDOWS
 extern char *strerror(int);
@@ -608,16 +612,6 @@ PyErr_SetFromErrno(PyObject *exc)
 }
 
 #ifdef MS_WINDOWS
-/* Windows specific error code handling */
-PyObject *PyErr_SetExcFromWindowsErrWithFilenameObject(
-    PyObject *exc,
-    int ierr,
-    PyObject *filenameObject)
-{
-    return PyErr_SetExcFromWindowsErrWithFilenameObjects(exc, ierr,
-        filenameObject, NULL);
-}
-
 PyObject *PyErr_SetExcFromWindowsErrWithFilenameObjects(
     PyObject *exc,
     int ierr,
@@ -681,6 +675,17 @@ PyObject *PyErr_SetExcFromWindowsErrWithFilenameObjects(
     LocalFree(s_buf);
     return NULL;
 }
+
+  /* Windows specific error code handling */
+PyObject *PyErr_SetExcFromWindowsErrWithFilenameObject(
+    PyObject *exc,
+    int ierr,
+    PyObject *filenameObject)
+{
+    return PyErr_SetExcFromWindowsErrWithFilenameObjects(exc, ierr,
+        filenameObject, NULL);
+}
+
 
 PyObject *PyErr_SetExcFromWindowsErrWithFilename(
     PyObject *exc,

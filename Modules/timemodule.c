@@ -27,7 +27,7 @@
 #if defined(__WATCOMC__) && !defined(__QNX__)
 #include <i86.h>
 #else
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include "pythread.h"
@@ -1822,7 +1822,7 @@ static int
 pysleep(_PyTime_t secs)
 {
     _PyTime_t deadline, monotonic;
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(__MINGW32__)
     struct timeval timeout;
     int err = 0;
 #else
@@ -1835,7 +1835,7 @@ pysleep(_PyTime_t secs)
     deadline = _PyTime_GetMonotonicClock() + secs;
 
     do {
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(__MINGW32__)
         if (_PyTime_AsTimeval(secs, &timeout, _PyTime_ROUND_CEILING) < 0)
             return -1;
 

@@ -3155,6 +3155,9 @@ AC_ARG_ENABLE(loadable-sqlite-extensions,
 
 AC_MSG_RESULT($enable_loadable_sqlite_extensions)
 
+AC_SUBST(USE_PWD_MODULE)
+AC_SUBST(USE_WIN32_MODULE)
+
 # Check for --with-tcltk-includes=path and --with-tcltk-libs=path
 AC_SUBST(TCLTK_INCLUDES)
 AC_SUBST(TCLTK_LIBS)
@@ -5590,6 +5593,7 @@ AIX*)
 esac
 
 
+AC_SUBST(PYTHON_OBJS_FROZENMAIN)
 AC_SUBST(THREADHEADERS)
 
 for h in `(cd $srcdir;echo Python/thread_*.h)`

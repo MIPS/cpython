@@ -21,7 +21,7 @@ PyAPI_FUNC(void) PyOS_AfterFork(void) Py_DEPRECATED(3.7);
 PyAPI_FUNC(int) _PyOS_IsMainThread(void);
 PyAPI_FUNC(void) _PySignal_AfterFork(void);
 
-#ifdef MS_WINDOWS
+#if  defined(MS_WINDOWS) || defined(__MINGW32__)
 /* windows.h is not included by Python.h so use void* instead of HANDLE */
 PyAPI_FUNC(void*) _PyOS_SigintEvent(void);
 #endif

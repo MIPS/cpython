@@ -12,7 +12,7 @@
 
 #include "importdl.h"
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
 extern dl_funcptr _PyImport_FindSharedFuncptrWindows(const char *prefix,
                                                      const char *shortname,
                                                      PyObject *pathname,
@@ -119,7 +119,7 @@ _PyImport_LoadDynamicModuleWithSpec(PyObject *spec, FILE *fp)
     if (path == NULL)
         goto error;
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
     exportfunc = _PyImport_FindSharedFuncptrWindows(hook_prefix, name_buf,
                                                     path, fp);
 #else

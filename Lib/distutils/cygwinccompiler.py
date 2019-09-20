@@ -49,6 +49,7 @@ import os
 import sys
 import copy
 import re
+import subprocess
 
 from distutils.ccompiler import gen_preprocess_options, gen_lib_options
 from distutils.unixccompiler import UnixCCompiler
@@ -84,6 +85,7 @@ def get_msvcr():
         else:
             raise ValueError("Unknown MS Compiler version %s " % msc_ver)
 
+import sysconfig
 
 class CygwinCCompiler(UnixCCompiler):
     """ Handles the Cygwin port of the GNU C compiler to Windows.
@@ -124,7 +126,7 @@ class CygwinCCompiler(UnixCCompiler):
         # same as the rest of binutils ( also ld )
         # dllwrap 2.10.90 is buggy
         if self.ld_version >= "2.10.90":
-            self.linker_dll = "gcc"
+            self.linker_dll = sysconfig.get_config_var('CC')
         else:
             self.linker_dll = "dllwrap"
 
@@ -289,9 +291,9 @@ class Mingw32CCompiler(CygwinCCompiler):
         # ld_version >= "2.13" support -shared so use it instead of
         # -mdll -static
         if self.ld_version >= "2.13":
-            shared_option = "-shared"
+            shared_option = "-shared -L."
         else:
-            shared_option = "-mdll -static"
+            shared_option = "-mdll -static -L."
 
         # A real mingw32 doesn't need to specify a different entry point,
         # but cygwin 2.91.57 in no-cygwin-mode needs it.
@@ -304,10 +306,12 @@ class Mingw32CCompiler(CygwinCCompiler):
             raise CCompilerError(
                 'Cygwin gcc cannot be used with --compiler=mingw32')
 
-        self.set_executables(compiler='gcc -O -Wall',
-                             compiler_so='gcc -mdll -O -Wall',
-                             compiler_cxx='g++ -O -Wall',
-                             linker_exe='gcc',
+        cc=self.linker_dll = sysconfig.get_config_var('CC')
+        cxx=self.linker_dll = sysconfig.get_config_var('CXX')
+        self.set_executables(compiler='%s -O -Wall' % cc,
+                             compiler_so='%s -mdll -O -Wall' % cc,
+                             compiler_cxx='%s -O -Wall' % cxx,
+                             linker_exe=cc,
                              linker_so='%s %s %s'
                                         % (self.linker_dll, shared_option,
                                            entry_point))
@@ -407,5 +411,5 @@ def get_versions():
 
 def is_cygwingcc():
     '''Try to determine if the gcc that would be used is from cygwin.'''
-    out_string = check_output(['gcc', '-dumpmachine'])
+    out_string = subprocess.check_output(['gcc', '-dumpmachine'])
     return out_string.strip().endswith(b'cygwin')

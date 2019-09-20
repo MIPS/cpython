@@ -498,7 +498,7 @@ semlock_rebuild(PyTypeObject *type, PyObject *args)
         strcpy(name_copy, name);
     }
 
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(__MINGW32__)
     if (name != NULL) {
         handle = sem_open(name, 0);
         if (handle == SEM_FAILED) {

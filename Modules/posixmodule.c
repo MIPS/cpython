@@ -308,6 +308,10 @@ extern int lstat(const char *, struct stat *);
 #endif
 #endif
 
+#ifdef __MINGW32__
+  #include <lmcons.h>     /* for UNLEN */
+#endif
+
 #ifdef MS_WINDOWS
 #ifdef HAVE_DIRECT_H
 #include <direct.h>
@@ -383,7 +387,11 @@ static int win32_can_symlink = 0;
 #       define STRUCT_STAT struct _Py_stat_struct
 #else
 #       define STAT stat
+#ifdef __MINGW32__
+#       define LSTAT stat
+#else
 #       define LSTAT lstat
+#endif
 #       define FSTAT fstat
 #       define STRUCT_STAT struct stat
 #endif
@@ -3950,7 +3958,7 @@ os_mkdir_impl(PyObject *module, path_t *path, int mode, int dir_fd)
         result = mkdirat(dir_fd, path->narrow, mode);
     else
 #endif
-#if defined(__WATCOMC__) && !defined(__QNX__)
+#if (defined(__WATCOMC__) && !defined(__QNX__)) || defined(__MINGW32__)
         result = mkdir(path->narrow);
 #else
         result = mkdir(path->narrow, mode);
@@ -6439,7 +6447,7 @@ os_setpgrp_impl(PyObject *module)
 
 #ifdef HAVE_GETPPID
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
 #include <tlhelp32.h>
 
 static PyObject*
@@ -6495,7 +6503,7 @@ static PyObject *
 os_getppid_impl(PyObject *module)
 /*[clinic end generated code: output=43b2a946a8c603b4 input=e637cb87539c030e]*/
 {
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
     return win32_getppid();
 #else
     return PyLong_FromPid(getppid());
@@ -6516,7 +6524,7 @@ os_getlogin_impl(PyObject *module)
 /*[clinic end generated code: output=a32e66a7e5715dac input=2a21ab1e917163df]*/
 {
     PyObject *result = NULL;
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
     wchar_t user_name[UNLEN + 1];
     DWORD num_chars = Py_ARRAY_LENGTH(user_name);
 
@@ -8595,7 +8603,7 @@ os_pipe_impl(PyObject *module)
 /*[clinic end generated code: output=ff9b76255793b440 input=02535e8c8fa6c4d4]*/
 {
     int fds[2];
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
     HANDLE read, write;
     SECURITY_ATTRIBUTES attr;
     BOOL ok;
@@ -8603,7 +8611,7 @@ os_pipe_impl(PyObject *module)
     int res;
 #endif
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
     attr.nLength = sizeof(attr);
     attr.lpSecurityDescriptor = NULL;
     attr.bInheritHandle = FALSE;
@@ -11545,7 +11553,7 @@ os_set_handle_inheritable_impl(PyObject *module, intptr_t handle,
 }
 #endif /* MS_WINDOWS */
 
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(__MINGW32__)
 PyDoc_STRVAR(get_blocking__doc__,
     "get_blocking(fd) -> bool\n" \
     "\n" \
@@ -12836,7 +12844,7 @@ static PyMethodDef posix_methods[] = {
     OS_SET_INHERITABLE_METHODDEF
     OS_GET_HANDLE_INHERITABLE_METHODDEF
     OS_SET_HANDLE_INHERITABLE_METHODDEF
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(__MINGW32__)
     {"get_blocking", posix_get_blocking, METH_VARARGS, get_blocking__doc__},
     {"set_blocking", posix_set_blocking, METH_VARARGS, set_blocking__doc__},
 #endif

@@ -277,7 +277,9 @@ PyAPI_FUNC(PyObject *) _PyErr_FormatFromCause(
     );
 #endif
 
-#ifdef MS_WINDOWS
+#ifdef __MINGW32__
+  PyAPI_FUNC(PyObject *) PyErr_SetFromWindowsErr(int);
+#elif defined(MS_WINDOWS)
 PyAPI_FUNC(PyObject *) PyErr_SetFromWindowsErrWithFilename(
     int ierr,
     const char *filename        /* decoded from the filesystem encoding */

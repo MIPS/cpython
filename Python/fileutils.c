@@ -739,7 +739,9 @@ FILE_TIME_to_time_t_nsec(FILETIME *in_ptr, time_t *time_out, int* nsec_out)
        since it might not be aligned properly */
     __int64 in;
     memcpy(&in, in_ptr, sizeof(in));
+    #ifndef __MINGW32__
     *nsec_out = (int)(in % 10000000) * 100; /* FILETIME is in units of 100 nsec. */
+    #endif
     *time_out = Py_SAFE_DOWNCAST((in / 10000000) - secs_between_epochs, __int64, time_t);
 }
 
@@ -781,9 +783,15 @@ _Py_attribute_data_to_stat(BY_HANDLE_FILE_INFORMATION *info, ULONG reparse_tag,
     result->st_size = (((__int64)info->nFileSizeHigh)<<32) + info->nFileSizeLow;
     result->st_dev = info->dwVolumeSerialNumber;
     result->st_rdev = result->st_dev;
+# ifdef __MINGW32__
+    FILE_TIME_to_time_t_nsec(&info->ftCreationTime, &result->st_ctime, &result->st_ctime);
+    FILE_TIME_to_time_t_nsec(&info->ftLastWriteTime, &result->st_mtime, &result->st_mtime);
+    FILE_TIME_to_time_t_nsec(&info->ftLastAccessTime, &result->st_atime, &result->st_atime);
+# else
     FILE_TIME_to_time_t_nsec(&info->ftCreationTime, &result->st_ctime, &result->st_ctime_nsec);
     FILE_TIME_to_time_t_nsec(&info->ftLastWriteTime, &result->st_mtime, &result->st_mtime_nsec);
     FILE_TIME_to_time_t_nsec(&info->ftLastAccessTime, &result->st_atime, &result->st_atime_nsec);
+# endif
     result->st_nlink = info->nNumberOfLinks;
     result->st_ino = (((uint64_t)info->nFileIndexHigh) << 32) + info->nFileIndexLow;
     if (reparse_tag == IO_REPARSE_TAG_SYMLINK) {
@@ -792,7 +800,9 @@ _Py_attribute_data_to_stat(BY_HANDLE_FILE_INFORMATION *info, ULONG reparse_tag,
         /* now set the bits that make this a symlink */
         result->st_mode |= S_IFLNK;
     }
+# ifndef __MINGW32__
     result->st_file_attributes = info->dwFileAttributes;
+# endif
 }
 #endif
 
@@ -942,6 +952,9 @@ _Py_stat(PyObject *path, struct stat *statbuf)
 #endif
 }
 
+#ifdef __MINGW32__
+#include <windows.h>
+#endif
 
 /* This function MUST be kept async-signal-safe on POSIX when raise=0. */
 static int
@@ -968,6 +981,27 @@ get_inheritable(int fd, int raise)
 
     return (flags & HANDLE_FLAG_INHERIT);
 #else
+# ifdef __MINGW32__
+    HANDLE handle;
+    DWORD flags;
+
+    _Py_BEGIN_SUPPRESS_IPH
+    handle = (HANDLE)_get_osfhandle(fd);
+    _Py_END_SUPPRESS_IPH
+    if (handle == INVALID_HANDLE_VALUE) {
+        if (raise)
+            PyErr_SetFromErrno(PyExc_OSError);
+        return -1;
+    }
+
+    if (!GetHandleInformation(handle, &flags)) {
+        if (raise)
+            PyErr_SetFromErrno(0);
+        return -1;
+    }
+
+    return (flags & HANDLE_FLAG_INHERIT);
+# else
     int flags;
 
     flags = fcntl(fd, F_GETFD, 0);
@@ -977,6 +1011,7 @@ get_inheritable(int fd, int raise)
         return -1;
     }
     return !(flags & FD_CLOEXEC);
+# endif
 #endif
 }
 
@@ -994,7 +1029,7 @@ _Py_get_inheritable(int fd)
 static int
 set_inheritable(int fd, int inheritable, int raise, int *atomic_flag_works)
 {
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
     HANDLE handle;
     DWORD flags;
 #else
@@ -1023,7 +1058,7 @@ set_inheritable(int fd, int inheritable, int raise, int *atomic_flag_works)
             return 0;
     }
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
     _Py_BEGIN_SUPPRESS_IPH
     handle = (HANDLE)_get_osfhandle(fd);
     _Py_END_SUPPRESS_IPH
@@ -1039,8 +1074,12 @@ set_inheritable(int fd, int inheritable, int raise, int *atomic_flag_works)
         flags = 0;
     if (!SetHandleInformation(handle, HANDLE_FLAG_INHERIT, flags)) {
         if (raise)
-            PyErr_SetFromWindowsErr(0);
-        return -1;
+# ifdef __MINGW32__
+	    PyErr_SetFromErrno(0);
+# else
+	    PyErr_SetFromWindowsErr(0);
+# endif
+	return -1;
     }
     return 0;
 
@@ -1720,7 +1759,7 @@ _Py_dup(int fd)
     return fd;
 }
 
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(__MINGW32__)
 /* Get the blocking mode of the file descriptor.
    Return 0 if the O_NONBLOCK flag is set, 1 if the flag is cleared,
    raise an exception and return -1 on error. */

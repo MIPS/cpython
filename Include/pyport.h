@@ -139,7 +139,7 @@ typedef int Py_ssize_clean_t;
 #       define PY_FORMAT_SIZE_T ""
 #   elif SIZEOF_SIZE_T == SIZEOF_LONG
 #       define PY_FORMAT_SIZE_T "l"
-#   elif defined(MS_WINDOWS)
+#   elif defined(MS_WINDOWS) || defined(__MINGW32__)
 #       define PY_FORMAT_SIZE_T "I"
 #   else
 #       error "This platform's pyconfig.h needs to define PY_FORMAT_SIZE_T"
@@ -155,9 +155,6 @@ typedef int Py_ssize_clean_t;
 #endif
 #if !defined(MS_WIN32) && defined(_WIN32)
 #  define MS_WIN32
-#endif
-#if !defined(MS_WINDOWS) && defined(MS_WIN32)
-#  define MS_WINDOWS
 #endif
 #endif /*def __MINGW32__*/
 
@@ -178,7 +175,6 @@ guarded as follows:
 #endif
 #ifdef _WIN32
 #   define MS_WIN32 /* only support win32 and greater. */
-#   define MS_WINDOWS
 #endif
 
 /* Py_LOCAL can be used instead of static to get the fastest possible calling

@@ -7,11 +7,11 @@
 #ifndef MS_WINDOWS
 #include "posixmodule.h"
 #endif
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
 #include "socketmodule.h"   /* needed for SOCKET_T */
 #endif
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
 #include <windows.h>
 #ifdef HAVE_PROCESS_H
 #include <process.h>
@@ -95,7 +95,7 @@ static volatile struct {
     PyObject *func;
 } Handlers[NSIG];
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
 #define INVALID_FD ((SOCKET_T)-1)
 
 static volatile struct {
@@ -118,7 +118,7 @@ static PyObject *DefaultHandler;
 static PyObject *IgnoreHandler;
 static PyObject *IntHandler;
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
 static HANDLE sigint_event = NULL;
 #endif
 
@@ -539,7 +539,7 @@ signal_set_wakeup_fd(PyObject *self, PyObject *args, PyObject *kwds)
         "", "warn_on_full_buffer", NULL,
     };
     int warn_on_full_buffer = 1;
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
     PyObject *fdobj;
     SOCKET_T sockfd, old_sockfd;
     int res;
@@ -568,7 +568,7 @@ signal_set_wakeup_fd(PyObject *self, PyObject *args, PyObject *kwds)
         return NULL;
     }
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
     is_socket = 0;
     if (sockfd != INVALID_FD) {
         /* Import the _socket module to call WSAStartup() */
@@ -584,7 +584,11 @@ signal_set_wakeup_fd(PyObject *self, PyObject *args, PyObject *kwds)
 
             err = WSAGetLastError();
             if (err != WSAENOTSOCK) {
+#ifdef __MINGW32__
+                PyErr_SetFromErrno(PyExc_OSError);
+#else
                 PyErr_SetExcFromWindowsErr(PyExc_OSError, err);
+#endif
                 return NULL;
             }
 
@@ -1632,7 +1636,7 @@ _PyOS_IsMainThread(void)
     return PyThread_get_thread_ident() == main_thread;
 }
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
 void *_PyOS_SigintEvent(void)
 {
     /* Returns a manual-reset event which gets tripped whenever

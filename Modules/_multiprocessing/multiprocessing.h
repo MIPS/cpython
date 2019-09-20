@@ -11,7 +11,7 @@
  * Platform includes and definitions
  */
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) || defined(__MINGW32__)
 #  define WIN32_LEAN_AND_MEAN
 #  include <windows.h>
 #  include <winsock2.h>
@@ -21,6 +21,10 @@
 #  endif
 #  define SEM_HANDLE HANDLE
 #  define SEM_VALUE_MAX LONG_MAX
+#  ifdef __MINGW32__
+#    include <fcntl.h>                 /* O_CREAT and O_EXCL */
+#    include <semaphore.h>
+#  endif
 #else
 #  include <fcntl.h>                 /* O_CREAT and O_EXCL */
 #  if defined(HAVE_SEM_OPEN) && !defined(POSIX_SEMAPHORES_NOT_ENABLED)

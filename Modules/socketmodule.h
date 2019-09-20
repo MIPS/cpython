@@ -1,7 +1,7 @@
 /* Socket module header file */
 
 /* Includes needed for the sockaddr_* symbols below */
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(__MINGW32__)
 #ifdef __VMS
 #   include <socket.h>
 # else
