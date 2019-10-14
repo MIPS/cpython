@@ -32,7 +32,7 @@ int (*PyOS_InputHook)(void) = NULL;
 #ifdef RISCOS
 int Py_RISCOSWimpFlag;
 #endif
-
+#include <errno.h>
 /* This function restarts a fgets() after an EINTR error occurred
    except if PyOS_InterruptOccurred() returns true. */
 
