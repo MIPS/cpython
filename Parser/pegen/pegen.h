@@ -102,6 +102,7 @@ void *_PyPegen_indent_token(Parser *p);
 void *_PyPegen_dedent_token(Parser *p);
 expr_ty _PyPegen_number_token(Parser *p);
 void *_PyPegen_string_token(Parser *p);
+void *_PyPegen_type_comment_token(Parser *p);
 const char *_PyPegen_get_expr_name(expr_ty);
 void *_PyPegen_raise_error(Parser *p, PyObject *, const char *errmsg, ...);
 void *_PyPegen_dummy_name(Parser *p, ...);
@@ -136,7 +137,10 @@ CHECK_CALL_NULL_ALLOWED(Parser *p, void *result)
 #define CHECK(result) CHECK_CALL(p, result)
 #define CHECK_NULL_ALLOWED(result) CHECK_CALL_NULL_ALLOWED(p, result)
 
+#define NEW_TYPE_COMMENT(tc) (tc==NULL ? NULL : _PyPegen_new_type_comment(p, PyBytes_AsString(((Token *)tc)->bytes)))
+
 PyObject *_PyPegen_new_identifier(Parser *, char *);
+PyObject *_PyPegen_new_type_comment(Parser *, char *);
 Parser *_PyPegen_Parser_New(struct tok_state *, int, int *, PyArena *);
 void _PyPegen_Parser_Free(Parser *);
 mod_ty _PyPegen_run_parser_from_file_pointer(FILE *, int, PyObject *, const char *,
