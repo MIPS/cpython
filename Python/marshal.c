@@ -179,6 +179,30 @@ w_long(long x, WFILE *p)
     w_byte((char)((x>>24) & 0xff), p);
 }
 
+static Py_ssize_t
+w_reserve_backpatch(WFILE *p)
+{
+    Py_ssize_t pos = p->ptr ? p->ptr - p->buf : 0;
+    w_long(0, p);
+    // fprintf(stderr, "w_reserve_backpatch: pos = %d\n", (int)pos);
+    return pos;
+}
+
+static void
+w_backpatch(WFILE *p, Py_ssize_t pos)
+{
+    if (!p->ptr) {
+        // fprintf(stderr, "w_backpatch: Cannot backpatch\n");
+        return;
+    }
+    Py_ssize_t save_pos = p->ptr - p->buf;
+    p->ptr = p->buf + pos;  // "Seek" to pos
+    Py_ssize_t size = save_pos - pos - 4;  // Size of amount we wrote
+    // fprintf(stderr, "w_backpatch: Size = %d\n", (int)size);
+    w_long((long)size, p);
+    p->ptr = p->buf + save_pos;  // Restore original pos
+}
+
 #define SIZE32_MAX  0x7FFFFFFF
 
 #if SIZEOF_SIZE_T > 4
@@ -510,6 +534,7 @@ w_complex_object(PyObject *v, char flag, WFILE *p)
     else if (PyCode_Check(v)) {
         PyCodeObject *co = (PyCodeObject *)v;
         W_TYPE(TYPE_CODE, p);
+        Py_ssize_t start_pos = w_reserve_backpatch(p);
         w_long(co->co_argcount, p);
         w_long(co->co_posonlyargcount, p);
         w_long(co->co_kwonlyargcount, p);
@@ -528,6 +553,7 @@ w_complex_object(PyObject *v, char flag, WFILE *p)
         w_object(co->co_endlinetable, p);
         w_object(co->co_columntable, p);
         w_object(co->co_exceptiontable, p);
+        w_backpatch(p, start_pos);
     }
     else if (PyObject_CheckBuffer(v)) {
         /* Write unknown bytes-like objects as a bytes object */
@@ -1304,6 +1330,7 @@ r_object(RFILE *p)
 
     case TYPE_CODE:
         {
+            int datasize;
             int argcount;
             int posonlyargcount;
             int kwonlyargcount;
@@ -1330,6 +1357,10 @@ r_object(RFILE *p)
             v = NULL;
 
             /* XXX ignore long->int overflows for now */
+            datasize = (int)r_long(p);
+            if (PyErr_Occurred())
+                goto code_error;
+            // fprintf(stderr, "Code object size read: %d\n", (int)datasize);
             argcount = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
