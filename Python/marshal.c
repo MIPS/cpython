@@ -548,15 +548,18 @@ w_complex_object(PyObject *v, char flag, WFILE *p)
         w_long(co->co_kwonlyargcount, p);
         w_long(co->co_stacksize, p);
         w_long(co->co_flags, p);
+
+        // These fields reordered so it's easier to skip later fields
+        w_long(co->co_firstlineno, p);
+        w_object(co->co_name, p);
+        w_object(co->co_qualname, p);
+        w_object(co->co_filename, p);
+
         w_object(co->co_code, p);
         w_object(co->co_consts, p);
         w_object(co->co_names, p);
         w_object(co->co_localsplusnames, p);
         w_object(co->co_localspluskinds, p);
-        w_object(co->co_filename, p);
-        w_object(co->co_name, p);
-        w_object(co->co_qualname, p);
-        w_long(co->co_firstlineno, p);
         w_object(co->co_linetable, p);
         w_object(co->co_endlinetable, p);
         w_object(co->co_columntable, p);
@@ -1345,15 +1348,15 @@ r_object(RFILE *p)
             int kwonlyargcount;
             int stacksize;
             int flags;
+            int firstlineno;
+            PyObject *name = NULL;
+            PyObject *qualname = NULL;
             PyObject *code = NULL;
+            PyObject *filename = NULL;
             PyObject *consts = NULL;
             PyObject *names = NULL;
             PyObject *localsplusnames = NULL;
             PyObject *localspluskinds = NULL;
-            PyObject *filename = NULL;
-            PyObject *name = NULL;
-            PyObject *qualname = NULL;
-            int firstlineno;
             PyObject *linetable = NULL;
             PyObject* endlinetable = NULL;
             PyObject* columntable = NULL;
@@ -1372,6 +1375,7 @@ r_object(RFILE *p)
             nrefs = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
+
             argcount = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
@@ -1388,6 +1392,20 @@ r_object(RFILE *p)
             flags = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
+
+            firstlineno = (int)r_long(p);
+            if (firstlineno == -1 && PyErr_Occurred())
+                break;
+            name = r_object(p);
+            if (name == NULL)
+                goto code_error;
+            qualname = r_object(p);
+            if (qualname == NULL)
+                goto code_error;
+            filename = r_object(p);
+            if (filename == NULL)
+                goto code_error;
+
             code = r_object(p);
             if (code == NULL)
                 goto code_error;
@@ -1403,18 +1421,6 @@ r_object(RFILE *p)
             localspluskinds = r_object(p);
             if (localspluskinds == NULL)
                 goto code_error;
-            filename = r_object(p);
-            if (filename == NULL)
-                goto code_error;
-            name = r_object(p);
-            if (name == NULL)
-                goto code_error;
-            qualname = r_object(p);
-            if (qualname == NULL)
-                goto code_error;
-            firstlineno = (int)r_long(p);
-            if (firstlineno == -1 && PyErr_Occurred())
-                break;
             linetable = r_object(p);
             if (linetable == NULL)
                 goto code_error;
