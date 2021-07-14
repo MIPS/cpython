@@ -90,6 +90,8 @@ typedef struct {
     int version;
 } WFILE;
 
+#define count_refs(p) ((p)->hashtable->nentries)
+
 #define w_byte(c, p) do {                               \
         if ((p)->ptr != (p)->end || w_reserve((p), 1))  \
             *(p)->ptr++ = (c);                          \
@@ -179,27 +181,27 @@ w_long(long x, WFILE *p)
     w_byte((char)((x>>24) & 0xff), p);
 }
 
-static Py_ssize_t
-w_reserve_backpatch(WFILE *p)
+static void
+w_reserve_backpatch(WFILE *p, Py_ssize_t *p_pos, Py_ssize_t *p_nrefs)
 {
-    Py_ssize_t pos = p->ptr ? p->ptr - p->buf : 0;
-    w_long(0, p);
-    // fprintf(stderr, "w_reserve_backpatch: pos = %d\n", (int)pos);
-    return pos;
+    *p_pos = p->ptr ? p->ptr - p->buf : 0;
+    *p_nrefs = count_refs(p);
+    w_long(0, p);  // size in bytes INCLUDING THESE TWO FIELDS
+    w_long(0, p);  // number of refs to add if skipping
 }
 
 static void
-w_backpatch(WFILE *p, Py_ssize_t pos)
+w_backpatch(WFILE *p, Py_ssize_t pos, Py_ssize_t old_nrefs)
 {
     if (!p->ptr) {
-        // fprintf(stderr, "w_backpatch: Cannot backpatch\n");
         return;
     }
     Py_ssize_t save_pos = p->ptr - p->buf;
     p->ptr = p->buf + pos;  // "Seek" to pos
-    Py_ssize_t size = save_pos - pos - 4;  // Size of amount we wrote
-    // fprintf(stderr, "w_backpatch: Size = %d\n", (int)size);
+    Py_ssize_t size = save_pos - pos;  // Size INCLUDING THESE TWO FIELDS
     w_long((long)size, p);
+    Py_ssize_t new_nrefs = count_refs(p);
+    w_long((long)(new_nrefs - old_nrefs), p);
     p->ptr = p->buf + save_pos;  // Restore original pos
 }
 
@@ -388,6 +390,10 @@ w_object(PyObject *v, WFILE *p)
     else if (v == Py_True) {
         w_byte(TYPE_TRUE, p);
     }
+    else if (PyCode_Check(v)) {
+        // Let's never add the flag for code objects
+        w_complex_object(v, 0, p);
+    }
     else if (!w_ref(v, &flag, p))
         w_complex_object(v, flag, p);
 
@@ -534,7 +540,9 @@ w_complex_object(PyObject *v, char flag, WFILE *p)
     else if (PyCode_Check(v)) {
         PyCodeObject *co = (PyCodeObject *)v;
         W_TYPE(TYPE_CODE, p);
-        Py_ssize_t start_pos = w_reserve_backpatch(p);
+        Py_ssize_t start_pos = 0;
+        Py_ssize_t start_nrefs = 0;
+        w_reserve_backpatch(p, &start_pos, &start_nrefs);
         w_long(co->co_argcount, p);
         w_long(co->co_posonlyargcount, p);
         w_long(co->co_kwonlyargcount, p);
@@ -553,7 +561,7 @@ w_complex_object(PyObject *v, char flag, WFILE *p)
         w_object(co->co_endlinetable, p);
         w_object(co->co_columntable, p);
         w_object(co->co_exceptiontable, p);
-        w_backpatch(p, start_pos);
+        w_backpatch(p, start_pos, start_nrefs);
     }
     else if (PyObject_CheckBuffer(v)) {
         /* Write unknown bytes-like objects as a bytes object */
@@ -1331,6 +1339,7 @@ r_object(RFILE *p)
     case TYPE_CODE:
         {
             int datasize;
+            int nrefs;
             int argcount;
             int posonlyargcount;
             int kwonlyargcount;
@@ -1360,7 +1369,9 @@ r_object(RFILE *p)
             datasize = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
-            // fprintf(stderr, "Code object size read: %d\n", (int)datasize);
+            nrefs = (int)r_long(p);
+            if (PyErr_Occurred())
+                goto code_error;
             argcount = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
