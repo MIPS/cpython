@@ -241,6 +241,10 @@ struct _PyCodeConstructor {
 
     /* used by the eval loop */
     PyObject *exceptiontable;
+
+    /* Hydration */
+    struct context *hydra_context;
+    Py_ssize_t hydra_offset;
 };
 
 // Using an "arguments struct" like this is helpful for maintainability
@@ -252,8 +256,10 @@ struct _PyCodeConstructor {
 // back to a regular function signature.  Regardless, this approach
 // wouldn't be appropriate if this weren't a strictly internal API.
 // (See the comments in https://github.com/python/cpython/pull/26258.)
+// TODO: Why PyAPI_FUNC() if these are private?
 PyAPI_FUNC(int) _PyCode_Validate(struct _PyCodeConstructor *);
 PyAPI_FUNC(PyCodeObject *) _PyCode_New(struct _PyCodeConstructor *);
+PyAPI_FUNC(PyCodeObject *) _PyCode_Update(struct _PyCodeConstructor *, PyCodeObject *);
 
 
 /* Private API */
@@ -347,6 +353,16 @@ void _Py_PrintSpecializationStats(void);
 #define STAT_INC(opname, name) ((void)0)
 #endif
 
+
+/* Hydration */
+
+static inline int
+_PyCode_IsHydrated(PyCodeObject *code)
+{
+    return code->co_firstinstr != NULL;
+}
+
+PyCodeObject *_PyCode_Hydrate(PyCodeObject *code);
 
 #ifdef __cplusplus
 }

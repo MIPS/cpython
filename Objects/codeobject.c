@@ -336,7 +336,7 @@ init_code(PyCodeObject *co, struct _PyCodeConstructor *con)
     }
     co->co_firstlineno = con->firstlineno;
 
-    // These may be NULL, and set by hydration
+    // These may be NULL, and will then be set by hydration
     Py_XINCREF(con->linetable);
     co->co_linetable = con->linetable;
     Py_XINCREF(con->endlinetable);
@@ -362,6 +362,10 @@ init_code(PyCodeObject *co, struct _PyCodeConstructor *con)
 
     Py_XINCREF(con->exceptiontable);
     co->co_exceptiontable = con->exceptiontable;
+
+    /* hydration */
+    co->co_hydra_context = con->hydra_context;
+    co->co_hydra_offset = con->hydra_offset;
 
     /* derived values */
     co->co_varnames = NULL;
@@ -418,6 +422,29 @@ _PyCode_New(struct _PyCodeConstructor *con)
 
     return co;
 }
+
+PyCodeObject *
+_PyCode_Update(struct _PyCodeConstructor *con, PyCodeObject *code)
+{
+    if (_PyCode_Validate(con) != 0) {
+        PyErr_SetString(PyExc_SystemError, "_PyCode_Update(): invalid input");
+        return NULL;
+    }
+
+    // There's no need to intern stuff, marshal took care of that
+
+    // Discard the endlinetable and columntable if we are opted out of debug
+    // ranges.
+    if (_Py_GetConfig()->no_debug_ranges) {
+        con->endlinetable = Py_None;
+        con->columntable = Py_None;
+    }
+
+    init_code(code, con);  // TODO: This leaks!
+
+    return code;
+}
+
 
 
 /******************

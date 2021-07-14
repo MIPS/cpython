@@ -1058,6 +1058,11 @@ PyEval_EvalCode(PyObject *co, PyObject *globals, PyObject *locals)
     if (builtins == NULL) {
         return NULL;
     }
+    if (PyCode_Check(co) && !_PyCode_IsHydrated((PyCodeObject *)co)) {
+        if (_PyCode_Hydrate((PyCodeObject *)co) == NULL) {
+            return NULL;
+        }
+    }
     PyFrameConstructor desc = {
         .fc_globals = globals,
         .fc_builtins = builtins,
@@ -1492,6 +1497,12 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 
     if (PyDTrace_FUNCTION_ENTRY_ENABLED())
         dtrace_function_entry(f);
+
+    if (!_PyCode_IsHydrated(co)) {
+        if (_PyCode_Hydrate(co) == NULL) {
+            goto exit_eval_frame;
+        }
+    }
 
     /* Increment the warmup counter and quicken if warm enough
      * _Py_Quicken is idempotent so we don't worry about overflow */
@@ -5004,6 +5015,12 @@ _PyEval_Vector(PyThreadState *tstate, PyFrameConstructor *con,
 {
     PyObject **localsarray;
     PyCodeObject *code = (PyCodeObject *)con->fc_code;
+    if(!_PyCode_IsHydrated(code)) {
+        // Needed to set co_nlocalsplus
+        if (_PyCode_Hydrate(code) == NULL) {
+            return NULL;
+        }
+    }
     int is_coro = code->co_flags &
         (CO_GENERATOR | CO_COROUTINE | CO_ASYNC_GENERATOR);
     if (is_coro) {

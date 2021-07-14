@@ -651,6 +651,16 @@ PyMarshal_WriteObjectToFile(PyObject *x, FILE *fp, int version)
     w_flush(&wf);
 }
 
+
+struct context {
+    PyObject *obj;  // Python bytes(-like) object containing the data
+    const char *buf;  // Pointer to first byte
+    Py_ssize_t len;  // Number of bytes
+    PyObject *refs;  // List of shared values
+    PyCodeObject *code;  // If not NULL, code object to be updated
+        // TODO: the latter is neither re-entrant nor thread-safe :-(
+};
+
 typedef struct {
     FILE *fp;
     int depth;
@@ -660,6 +670,7 @@ typedef struct {
     char *buf;
     Py_ssize_t buf_size;
     PyObject *refs;  /* a list */
+    struct context *ctx;
 } RFILE;
 
 static const char *
@@ -1379,6 +1390,8 @@ r_object(RFILE *p)
             if (PyErr_Occurred())
                 goto code_error;
 
+            // assert(nrefs == 0);
+
             argcount = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
@@ -1419,12 +1432,21 @@ r_object(RFILE *p)
             con.qualname = qualname;
             con.filename = filename;
 
-            if (should_load_lazy(p)) {
+            PyCodeObject *to_update = NULL;
+
+            if (p->ctx != NULL && p->ctx->code == NULL) {
                 printf("Loading lazy\n");
                 assert(nrefs == 0);
                 p->ptr = save_ptr + datasize;
+
+                con.hydra_context = p->ctx;
+                con.hydra_offset = save_ptr - 1 - p->ctx->buf;  // Back up over typecode
             }
             else {
+                if (p->ctx != NULL && p->ctx->code != NULL) {
+                    to_update = p->ctx->code;
+                    p->ctx->code = NULL;
+                }
                 code = r_object(p);
                 if (code == NULL)
                     goto code_error;
@@ -1469,7 +1491,12 @@ r_object(RFILE *p)
                 }
             };
 
-            v = (PyObject *)_PyCode_New(&con);
+            if (to_update != NULL) {
+                v = (PyObject *)_PyCode_Update(&con, to_update);
+            }
+            else {
+                v = (PyObject *)_PyCode_New(&con);
+            }
             if (v == NULL) {
                 printf("Failed to create\n");
                 goto code_error;
@@ -1555,6 +1582,7 @@ PyMarshal_ReadShortFromFile(FILE *fp)
     rf.fp = fp;
     rf.end = rf.ptr = NULL;
     rf.buf = NULL;
+    rf.ctx = NULL;
     res = r_short(&rf);
     if (rf.buf != NULL)
         PyMem_Free(rf.buf);
@@ -1570,6 +1598,7 @@ PyMarshal_ReadLongFromFile(FILE *fp)
     rf.readable = NULL;
     rf.ptr = rf.end = NULL;
     rf.buf = NULL;
+    rf.ctx = NULL;
     res = r_long(&rf);
     if (rf.buf != NULL)
         PyMem_Free(rf.buf);
@@ -1633,6 +1662,7 @@ PyMarshal_ReadObjectFromFile(FILE *fp)
     rf.ptr = rf.end = NULL;
     rf.buf = NULL;
     rf.refs = PyList_New(0);
+    rf.ctx = NULL;
     if (rf.refs == NULL)
         return NULL;
     result = read_object(&rf);
@@ -1656,6 +1686,7 @@ PyMarshal_ReadObjectFromString(const char *str, Py_ssize_t len)
     rf.refs = PyList_New(0);
     if (rf.refs == NULL)
         return NULL;
+    rf.ctx = NULL;
     result = read_object(&rf);
     Py_DECREF(rf.refs);
     if (rf.buf != NULL)
@@ -1794,6 +1825,7 @@ marshal_load(PyObject *module, PyObject *file)
                 PyMem_Free(rf.buf);
         } else
             result = NULL;
+        rf.ctx = NULL;
     }
     Py_DECREF(data);
     return result;
@@ -1848,9 +1880,58 @@ marshal_loads_impl(PyObject *module, Py_buffer *bytes)
     rf.depth = 0;
     if ((rf.refs = PyList_New(0)) == NULL)
         return NULL;
+    rf.ctx = NULL;
+    if (should_load_lazy(&rf)) {
+        rf.ctx = PyMem_Malloc(sizeof(struct context));
+        if (rf.ctx == NULL) {
+            PyErr_NoMemory();
+            return NULL;
+        }
+        rf.ctx->obj = bytes->obj;
+        rf.ctx->buf = s;
+        rf.ctx->len = n;
+        rf.ctx->code = NULL;
+        Py_INCREF(rf.refs);
+        rf.ctx->refs = rf.refs;
+    }
     result = read_object(&rf);
     Py_DECREF(rf.refs);
     return result;
+}
+
+PyCodeObject *
+_PyCode_Hydrate(PyCodeObject *code)
+{
+    struct context *ctx = code->co_hydra_context;
+    if (ctx == NULL) {
+        // Not dehydrated
+        assert(_PyCode_IsHydrated(code));
+        return code;
+    }
+
+    assert(!_PyCode_IsHydrated(code));
+    assert(ctx->code == NULL);
+
+    const char *s = ctx->buf;
+    Py_ssize_t n = ctx->len;
+
+    RFILE rf;
+    rf.fp = NULL;
+    rf.readable = NULL;
+    rf.ptr = s + code->co_hydra_offset;
+    rf.end = s + n;
+    rf.depth = 0;
+    rf.refs = ctx->refs;
+    rf.ctx = ctx;
+    ctx->code = code;
+
+    PyObject *result = read_object(&rf);
+
+    ctx->code = NULL;
+    if (result == NULL)
+        return NULL;
+    assert(PyCode_Check(result));
+    return (PyCodeObject *)result;
 }
 
 static PyMethodDef marshal_methods[] = {
