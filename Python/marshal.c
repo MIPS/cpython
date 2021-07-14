@@ -322,6 +322,8 @@ w_ref(PyObject *v, char *flag, WFILE *p)
     _Py_hashtable_entry_t *entry;
     int w;
 
+    return 0;  // Experiment C NEVER writes object references
+
     if (p->version < 3 || p->hashtable == NULL)
         return 0; /* not writing object references */
 
@@ -389,10 +391,6 @@ w_object(PyObject *v, WFILE *p)
     }
     else if (v == Py_True) {
         w_byte(TYPE_TRUE, p);
-    }
-    else if (PyCode_Check(v)) {
-        // Let's never add the flag for code objects
-        w_complex_object(v, 0, p);
     }
     else if (!w_ref(v, &flag, p))
         w_complex_object(v, flag, p);
@@ -968,6 +966,12 @@ r_ref(PyObject *o, int flag, RFILE *p)
     return o;
 }
 
+static int
+should_load_lazy(RFILE *p)
+{
+    return getenv("LAZY") && *getenv("LAZY");  // XXX
+}
+
 static PyObject *
 r_object(RFILE *p)
 {
@@ -1361,14 +1365,13 @@ r_object(RFILE *p)
             PyObject* endlinetable = NULL;
             PyObject* columntable = NULL;
             PyObject *exceptiontable = NULL;
-
-            idx = r_ref_reserve(flag, p);
-            if (idx < 0)
-                break;
+            struct _PyCodeConstructor con = { 0 };  // All zeros
 
             v = NULL;
 
             /* XXX ignore long->int overflows for now */
+            const char *save_ptr = p->ptr;
+
             datasize = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
@@ -1406,71 +1409,73 @@ r_object(RFILE *p)
             if (filename == NULL)
                 goto code_error;
 
-            code = r_object(p);
-            if (code == NULL)
-                goto code_error;
-            consts = r_object(p);
-            if (consts == NULL)
-                goto code_error;
-            names = r_object(p);
-            if (names == NULL)
-                goto code_error;
-            localsplusnames = r_object(p);
-            if (localsplusnames == NULL)
-                goto code_error;
-            localspluskinds = r_object(p);
-            if (localspluskinds == NULL)
-                goto code_error;
-            linetable = r_object(p);
-            if (linetable == NULL)
-                goto code_error;
-            endlinetable = r_object(p);
-            if (endlinetable == NULL)
-                goto code_error;
-            columntable = r_object(p);
-            if (columntable == NULL)
-                goto code_error;
-            exceptiontable = r_object(p);
-            if (exceptiontable == NULL)
-                goto code_error;
+            con.argcount = argcount;
+            con.posonlyargcount = posonlyargcount;
+            con.kwonlyargcount = kwonlyargcount;
+            con.stacksize = stacksize;
+            con.flags = flags;
+            con.firstlineno = firstlineno;
+            con.name = name;
+            con.qualname = qualname;
+            con.filename = filename;
 
-            struct _PyCodeConstructor con = {
-                .filename = filename,
-                .name = name,
-                .qualname = qualname,
-                .flags = flags,
-
-                .code = code,
-                .firstlineno = firstlineno,
-                .linetable = linetable,
-                .endlinetable = endlinetable,
-                .columntable = columntable,
-
-                .consts = consts,
-                .names = names,
-
-                .localsplusnames = localsplusnames,
-                .localspluskinds = localspluskinds,
-
-                .argcount = argcount,
-                .posonlyargcount = posonlyargcount,
-                .kwonlyargcount = kwonlyargcount,
-
-                .stacksize = stacksize,
-
-                .exceptiontable = exceptiontable,
-            };
-
-            if (_PyCode_Validate(&con) < 0) {
-                goto code_error;
+            if (should_load_lazy(p)) {
+                printf("Loading lazy\n");
+                assert(nrefs == 0);
+                p->ptr = save_ptr + datasize;
             }
+            else {
+                code = r_object(p);
+                if (code == NULL)
+                    goto code_error;
+                consts = r_object(p);
+                if (consts == NULL)
+                    goto code_error;
+                names = r_object(p);
+                if (names == NULL)
+                    goto code_error;
+                localsplusnames = r_object(p);
+                if (localsplusnames == NULL)
+                    goto code_error;
+                localspluskinds = r_object(p);
+                if (localspluskinds == NULL)
+                    goto code_error;
+                linetable = r_object(p);
+                if (linetable == NULL)
+                    goto code_error;
+                endlinetable = r_object(p);
+                if (endlinetable == NULL)
+                    goto code_error;
+                columntable = r_object(p);
+                if (columntable == NULL)
+                    goto code_error;
+                exceptiontable = r_object(p);
+                if (exceptiontable == NULL)
+                    goto code_error;
+
+                con.code = code;
+                con.consts = consts;
+                con.names = names;
+                con.localsplusnames = localsplusnames;
+                con.localspluskinds = localspluskinds;
+                con.linetable = linetable;
+                con.endlinetable = endlinetable;
+                con.columntable = columntable;
+                con.exceptiontable = exceptiontable;
+
+                if (_PyCode_Validate(&con) < 0) {
+                    printf("Failed to validate\n");
+                    goto code_error;
+                }
+            };
 
             v = (PyObject *)_PyCode_New(&con);
             if (v == NULL) {
+                printf("Failed to create\n");
                 goto code_error;
             }
 
-            v = r_ref_insert(v, idx, flag, p);
+            v = r_ref_insert(v, idx, flag, p);  // TODO: NO
 
           code_error:
             Py_XDECREF(code);

@@ -38,6 +38,9 @@ intern_strings(PyObject *tuple)
 {
     Py_ssize_t i;
 
+    if (tuple == NULL)
+        return 0;
+
     for (i = PyTuple_GET_SIZE(tuple); --i >= 0; ) {
         PyObject *v = PyTuple_GET_ITEM(tuple, i);
         if (v == NULL || !PyUnicode_CheckExact(v)) {
@@ -54,6 +57,9 @@ intern_strings(PyObject *tuple)
 static int
 intern_string_constants(PyObject *tuple, int *modified)
 {
+    if (tuple == NULL)
+        return 0;
+
     for (Py_ssize_t i = PyTuple_GET_SIZE(tuple); --i >= 0; ) {
         PyObject *v = PyTuple_GET_ITEM(tuple, i);
         if (PyUnicode_CheckExact(v)) {
@@ -292,10 +298,25 @@ _PyCode_Validate(struct _PyCodeConstructor *con)
 static void
 init_code(PyCodeObject *co, struct _PyCodeConstructor *con)
 {
-    int nlocalsplus = (int)PyTuple_GET_SIZE(con->localsplusnames);
-    int nlocals, nplaincellvars, ncellvars, nfreevars;
-    get_localsplus_counts(con->localsplusnames, con->localspluskinds,
-                          &nlocals, &nplaincellvars, &ncellvars, &nfreevars);
+    if (con->localsplusnames) {
+        int nlocalsplus = (int)PyTuple_GET_SIZE(con->localsplusnames);
+        int nlocals, nplaincellvars, ncellvars, nfreevars;
+        get_localsplus_counts(con->localsplusnames, con->localspluskinds,
+                            &nlocals, &nplaincellvars, &ncellvars, &nfreevars);
+        co->co_nlocalsplus = nlocalsplus;
+        co->co_nlocals = nlocals;
+        co->co_nplaincellvars = nplaincellvars;
+        co->co_ncellvars = ncellvars;
+        co->co_nfreevars = nfreevars;
+    }
+    else {
+        // These will be set by hydration
+        co->co_nlocalsplus = 0;
+        co->co_nlocals = 0;
+        co->co_nplaincellvars = 0;
+        co->co_ncellvars = 0;
+        co->co_nfreevars = 0;
+    }
 
     Py_INCREF(con->filename);
     co->co_filename = con->filename;
@@ -305,25 +326,32 @@ init_code(PyCodeObject *co, struct _PyCodeConstructor *con)
     co->co_qualname = con->qualname;
     co->co_flags = con->flags;
 
-    Py_INCREF(con->code);
+    Py_XINCREF(con->code);
     co->co_code = con->code;
-    co->co_firstinstr = (_Py_CODEUNIT *)PyBytes_AS_STRING(con->code);
+    if (con->code) {
+        co->co_firstinstr = (_Py_CODEUNIT *)PyBytes_AS_STRING(con->code);
+    }
+    else {
+        co->co_firstinstr = 0;  // Will be set by hydration
+    }
     co->co_firstlineno = con->firstlineno;
-    Py_INCREF(con->linetable);
+
+    // These may be NULL, and set by hydration
+    Py_XINCREF(con->linetable);
     co->co_linetable = con->linetable;
-    Py_INCREF(con->endlinetable);
+    Py_XINCREF(con->endlinetable);
     co->co_endlinetable = con->endlinetable;
-    Py_INCREF(con->columntable);
+    Py_XINCREF(con->columntable);
     co->co_columntable = con->columntable;
 
-    Py_INCREF(con->consts);
+    Py_XINCREF(con->consts);
     co->co_consts = con->consts;
-    Py_INCREF(con->names);
+    Py_XINCREF(con->names);
     co->co_names = con->names;
 
-    Py_INCREF(con->localsplusnames);
+    Py_XINCREF(con->localsplusnames);
     co->co_localsplusnames = con->localsplusnames;
-    Py_INCREF(con->localspluskinds);
+    Py_XINCREF(con->localspluskinds);
     co->co_localspluskinds = con->localspluskinds;
 
     co->co_argcount = con->argcount;
@@ -332,15 +360,10 @@ init_code(PyCodeObject *co, struct _PyCodeConstructor *con)
 
     co->co_stacksize = con->stacksize;
 
-    Py_INCREF(con->exceptiontable);
+    Py_XINCREF(con->exceptiontable);
     co->co_exceptiontable = con->exceptiontable;
 
     /* derived values */
-    co->co_nlocalsplus = nlocalsplus;
-    co->co_nlocals = nlocals;
-    co->co_nplaincellvars = nplaincellvars;
-    co->co_ncellvars = ncellvars;
-    co->co_nfreevars = nfreevars;
     co->co_varnames = NULL;
     co->co_cellvars = NULL;
     co->co_freevars = NULL;

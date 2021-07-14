@@ -7,7 +7,9 @@
 
 /* enable more aggressive intra-module optimizations, where available */
 /* affects both release and debug builds - see bpo-43271 */
+#ifdef NDEBUG
 #define PY_LOCAL_AGGRESSIVE
+#endif
 
 #include "Python.h"
 #include "pycore_abstract.h"      // _PyIndex_Check()
