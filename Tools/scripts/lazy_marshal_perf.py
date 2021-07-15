@@ -8,10 +8,6 @@ from argparse import ArgumentParser
 from collections import namedtuple
 from test import test_tools
 
-test_tools.skip_if_missing("pyco")
-with test_tools.imports_under_tool("pyco"):
-    import pyco
-
 
 _LOAD_EXEC = "load+exec"
 _STEADY_STATE = "steady-state"
@@ -21,12 +17,12 @@ def speed_comparison(source: str, test_name: str):
     print()
     print(f"Starting speed test: {test_name}")
 
-    def helper(data, label):
+    def helper(data, label, lazy):
         timings = {}
         t0 = time.perf_counter()
         codes = []
         for _ in range(1000):
-            code = marshal.loads(data)
+            code = marshal.loads(data, lazy=lazy)
             codes.append(code)
         t1 = time.perf_counter()
         print(f"{label} load: {t1-t0:.3f}")
@@ -44,14 +40,9 @@ def speed_comparison(source: str, test_name: str):
 
     code = compile(source, "<old>", "exec")
     data = marshal.dumps(code)
-    classic_timings = helper(data, "Classic")
+    classic_timings = helper(data, "Classic", lazy=False)
 
-    t0 = time.perf_counter()
-    data = pyco.serialize_source(source, "<new>")
-    t1 = time.perf_counter()
-    print(f"PYCO: {t1-t0:.3f}")
-    assert data.startswith(b"PYC.")
-    new_timings = helper(data, "New PYC")
+    new_timings = helper(data, "Lazy", lazy=True)
 
     if classic_timings and new_timings:
 
@@ -60,7 +51,7 @@ def speed_comparison(source: str, test_name: str):
             tn = f(new_timings)
             print(
                 f">> {title} ratio: {tn/tc:.2f} "
-                f"(new is {100*(tn/tc-1):.0f}% faster)"
+                f"(new is {100*(tc/tn-1):.0f}% faster)"
             )
             return tn / tc
 
@@ -76,7 +67,6 @@ def speed_comparison(source: str, test_name: str):
             _LOAD_EXEC: comparison(_LOAD_EXEC, load_plus_exec_time),
             _STEADY_STATE: comparison(_STEADY_STATE, last_exec_time),
         }
-        print()
         return result
 
 
@@ -97,13 +87,13 @@ SpeedTestParams = namedtuple(
 def test_name(p: SpeedTestParams):
     nfuncs = p.num_funcs
     nvars = p.num_vars
-    scope = "locals " if p.is_locals else "globals"
+    scope = "locals" if p.is_locals else "globals"
     shared = "unique" if p.is_unique_names else "shared"
     is_call = "call" if p.is_call else ""
     consts = "consts" if p.is_vary_constants else ""
     return (
-        f" {shared:>6}{is_call:>5}{scope:>7}{consts:>7}"
-        f" {nfuncs:>4} funcs, {nvars:>4} vars"
+        f"{shared:6} {is_call:4} {scope:7} {consts:6} "
+        f"{nfuncs:4} funcs, {nvars:4} vars"
     )
 
 
@@ -161,7 +151,7 @@ def run_tests():
         [True, False],  # is_locals
         [True, False],  # is_unique_names
         [True, False],  # is_vary_constants
-        [False],  # is_call (True chokes on a memory leak?)
+        [True, False],  # is_call
     ):
         p = SpeedTestParams(*params)
         while gc.collect():
