@@ -1443,7 +1443,7 @@ r_object(RFILE *p)
             PyCodeObject *to_update = NULL;
 
             if (p->ctx != NULL && p->ctx->code == NULL) {
-                printf("Loading lazy\n");
+                // printf("Loading lazy\n");
                 assert(nrefs == 0);
                 p->ptr = save_ptr + datasize;
 
@@ -1452,6 +1452,7 @@ r_object(RFILE *p)
             }
             else {
                 if (p->ctx != NULL && p->ctx->code != NULL) {
+                    // printf("Rehydrating\n");
                     to_update = p->ctx->code;
                     p->ctx->code = NULL;
                 }
@@ -1565,7 +1566,8 @@ read_object(RFILE *p)
         fprintf(stderr, "XXX readobject called with exception set\n");
         return NULL;
     }
-    if (p->ptr && p->end) {
+    // Avoid endless recursion in audit hook
+    if (p->ptr && p->end && (p->ctx == NULL || p->ctx->code == NULL)) {
         if (PySys_Audit("marshal.loads", "y#", p->ptr, (Py_ssize_t)(p->end - p->ptr)) < 0) {
             return NULL;
         }
@@ -1911,7 +1913,7 @@ marshal_loads_impl(PyObject *module, Py_buffer *bytes)
 PyCodeObject *
 _PyCode_Hydrate(PyCodeObject *code)
 {
-    printf("Hydrating\n");
+    // printf("Hydrating\n");
     struct context *ctx = code->co_hydra_context;
     if (ctx == NULL) {
         // Not dehydrated
@@ -1920,7 +1922,10 @@ _PyCode_Hydrate(PyCodeObject *code)
     }
 
     assert(!_PyCode_IsHydrated(code));
-    assert(ctx->code == NULL);
+    if (ctx->code != NULL) {
+        PyErr_SetString(PyExc_SystemError, "Cannot hydrate recursively");
+        return NULL;
+    }
 
     const char *s = ctx->buf;
     Py_ssize_t n = ctx->len;
@@ -1938,9 +1943,7 @@ _PyCode_Hydrate(PyCodeObject *code)
     PyObject *result = read_object(&rf);
 
     ctx->code = NULL;
-    if (result == NULL)
-        return NULL;
-    assert(PyCode_Check(result));
+    assert(result == NULL || PyCode_Check(result));
     return (PyCodeObject *)result;
 }
 
