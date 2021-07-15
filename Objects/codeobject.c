@@ -1796,6 +1796,19 @@ static struct PyMethodDef code_methods[] = {
 };
 
 
+static PyObject *
+code_getattr(PyObject *self, PyObject *attr)
+{
+    PyCodeObject *code = (PyCodeObject *)self;
+    // Ensure code object is hydrated
+    if (!_PyCode_IsHydrated(code)) {
+        if (_PyCode_Hydrate(code) == NULL) {
+            return NULL;
+        }
+    }
+    return PyObject_GenericGetAttr(self, attr);
+}
+
 PyTypeObject PyCode_Type = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
     "code",
@@ -1813,7 +1826,7 @@ PyTypeObject PyCode_Type = {
     (hashfunc)code_hash,                /* tp_hash */
     0,                                  /* tp_call */
     0,                                  /* tp_str */
-    PyObject_GenericGetAttr,            /* tp_getattro */
+    code_getattr,                       /* tp_getattro */
     0,                                  /* tp_setattro */
     0,                                  /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT,                 /* tp_flags */
