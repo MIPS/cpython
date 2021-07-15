@@ -90,7 +90,7 @@ typedef struct {
     int version;
 } WFILE;
 
-#define count_refs(p) ((p)->hashtable->nentries)
+#define count_refs(p) ((p)->hashtable ? (p)->hashtable->nentries : 0)
 
 #define w_byte(c, p) do {                               \
         if ((p)->ptr != (p)->end || w_reserve((p), 1))  \
@@ -1818,6 +1818,7 @@ marshal_load(PyObject *module, PyObject *file)
         rf.readable = file;
         rf.ptr = rf.end = NULL;
         rf.buf = NULL;
+        rf.ctx = NULL;
         if ((rf.refs = PyList_New(0)) != NULL) {
             result = read_object(&rf);
             Py_DECREF(rf.refs);
@@ -1825,7 +1826,6 @@ marshal_load(PyObject *module, PyObject *file)
                 PyMem_Free(rf.buf);
         } else
             result = NULL;
-        rf.ctx = NULL;
     }
     Py_DECREF(data);
     return result;
