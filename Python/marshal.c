@@ -985,12 +985,6 @@ r_ref(PyObject *o, int flag, RFILE *p)
     return o;
 }
 
-static int
-should_load_lazy(RFILE *p)
-{
-    return getenv("LAZY") && *getenv("LAZY");  // XXX
-}
-
 static PyObject *
 r_object(RFILE *p)
 {
@@ -1868,6 +1862,8 @@ marshal.loads
 
     bytes: Py_buffer
     /
+    lazy: int = -1
+        Force lazy-loading.
 
 Convert the bytes-like object to a value.
 
@@ -1876,8 +1872,8 @@ bytes in the input are ignored.
 [clinic start generated code]*/
 
 static PyObject *
-marshal_loads_impl(PyObject *module, Py_buffer *bytes)
-/*[clinic end generated code: output=9fc65985c93d1bb1 input=6f426518459c8495]*/
+marshal_loads_impl(PyObject *module, Py_buffer *bytes, int lazy)
+/*[clinic end generated code: output=9a1f2325db169b0d input=e96776b6405c2a95]*/
 {
     RFILE rf;
     char *s = bytes->buf;
@@ -1891,7 +1887,9 @@ marshal_loads_impl(PyObject *module, Py_buffer *bytes)
     if ((rf.refs = PyList_New(0)) == NULL)
         return NULL;
     rf.ctx = NULL;
-    if (should_load_lazy(&rf)) {
+    if (lazy < 0)
+        lazy = getenv("LAZY") && *getenv("LAZY");  // TODO: Rename?
+    if (lazy) {
         rf.ctx = PyMem_Malloc(sizeof(struct context));
         if (rf.ctx == NULL) {
             PyErr_NoMemory();
