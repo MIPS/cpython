@@ -1887,6 +1887,7 @@ marshal_loads_impl(PyObject *module, Py_buffer *bytes)
             PyErr_NoMemory();
             return NULL;
         }
+        Py_INCREF(bytes->obj);
         rf.ctx->obj = bytes->obj;
         rf.ctx->buf = s;
         rf.ctx->len = n;
@@ -1902,6 +1903,7 @@ marshal_loads_impl(PyObject *module, Py_buffer *bytes)
 PyCodeObject *
 _PyCode_Hydrate(PyCodeObject *code)
 {
+    printf("Hydrating\n");
     struct context *ctx = code->co_hydra_context;
     if (ctx == NULL) {
         // Not dehydrated
