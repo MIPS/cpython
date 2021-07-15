@@ -1477,6 +1477,19 @@ code_richcompare(PyObject *self, PyObject *other, int op)
     if (!eq) goto unequal;
     eq = co->co_firstlineno == cp->co_firstlineno;
     if (!eq) goto unequal;
+
+    // Must hydrate before we touch other fields
+    if (!_PyCode_IsHydrated(co)) {
+        if (_PyCode_Hydrate(co) == NULL) {
+            return NULL;
+        }
+    }
+    if (!_PyCode_IsHydrated(cp)) {
+        if (_PyCode_Hydrate(cp) == NULL) {
+            return NULL;
+        }
+    }
+
     eq = PyObject_RichCompareBool(co->co_code, cp->co_code, Py_EQ);
     if (eq <= 0) goto unequal;
 
