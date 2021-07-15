@@ -537,6 +537,14 @@ w_complex_object(PyObject *v, char flag, WFILE *p)
     }
     else if (PyCode_Check(v)) {
         PyCodeObject *co = (PyCodeObject *)v;
+        if (!_PyCode_IsHydrated(co)) {
+            if (_PyCode_Hydrate(co) == NULL) {
+                w_byte(TYPE_UNKNOWN, p);
+                p->depth--;
+                p->error = WFERR_UNMARSHALLABLE;
+                return;
+            }
+        }
         W_TYPE(TYPE_CODE, p);
         Py_ssize_t start_pos = 0;
         Py_ssize_t start_nrefs = 0;
