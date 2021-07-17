@@ -873,7 +873,9 @@ _PyFrame_New_NoTrack(PyThreadState *tstate, PyFrameConstructor *con, PyObject *l
     assert(con->fc_builtins != NULL);
     assert(con->fc_code != NULL);
     assert(locals == NULL || PyMapping_Check(locals));
+    assert(PyCode_Check(con->fc_code));
     PyCodeObject *code = (PyCodeObject *)con->fc_code;
+    assert(_PyCode_IsHydrated(code));
 
     PyFrameObject *f = frame_alloc(code, localsarray);
     if (f == NULL) {
