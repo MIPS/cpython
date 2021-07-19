@@ -322,10 +322,11 @@ w_ref(PyObject *v, char *flag, WFILE *p)
     _Py_hashtable_entry_t *entry;
     int w;
 
-    return 0;  // Experiment C NEVER writes object references
-
     if (p->version < 3 || p->hashtable == NULL)
         return 0; /* not writing object references */
+
+    if (PyCode_Check(v))
+        return 0; /* never sharing code objects */
 
     /* if it has only one reference, it definitely isn't shared */
     if (Py_REFCNT(v) == 1)
@@ -678,6 +679,7 @@ typedef struct {
     char *buf;
     Py_ssize_t buf_size;
     PyObject *refs;  /* a list */
+    Py_ssize_t refs_pos;  /* Where in refs to insert/append */
     struct context *ctx;
 } RFILE;
 
@@ -936,13 +938,23 @@ static Py_ssize_t
 r_ref_reserve(int flag, RFILE *p)
 {
     if (flag) { /* currently only FLAG_REF is defined */
-        Py_ssize_t idx = PyList_GET_SIZE(p->refs);
+        Py_ssize_t idx = p->refs_pos;
         if (idx >= 0x7ffffffe) {
             PyErr_SetString(PyExc_ValueError, "bad marshal data (index list too large)");
             return -1;
         }
-        if (PyList_Append(p->refs, Py_None) < 0)
-            return -1;
+        Py_ssize_t n = PyList_GET_SIZE(p->refs);
+        if (idx == n) {
+            if (PyList_Append(p->refs, Py_None) < 0)
+                return -1;
+        }
+        else {
+            assert(idx < n);
+            Py_INCREF(Py_None);
+            if (PyList_SetItem(p->refs, idx, Py_None) < 0)
+                return -1;
+        }
+        p->refs_pos += 1;
         return idx;
     } else
         return 0;
@@ -978,10 +990,24 @@ r_ref(PyObject *o, int flag, RFILE *p)
     assert(flag & FLAG_REF);
     if (o == NULL)
         return NULL;
-    if (PyList_Append(p->refs, o) < 0) {
-        Py_DECREF(o); /* release the new object */
-        return NULL;
+    Py_ssize_t idx = p->refs_pos;
+    // (Why is there no overflow check here like in r_ref_reserve()?)
+    Py_ssize_t n = PyList_GET_SIZE(p->refs);
+    if (idx == n) {
+        if (PyList_Append(p->refs, o) < 0) {
+            Py_DECREF(o); /* release the new object */
+            return NULL;
+        }
     }
+    else {
+        assert(idx < n);
+        Py_INCREF(o);
+        if (PyList_SetItem(p->refs, idx, o) < 0) {
+            Py_DECREF(o); /* release the new object */
+            return NULL;
+        }
+    }
+    p->refs_pos += 1;
     return o;
 }
 
@@ -1392,8 +1418,6 @@ r_object(RFILE *p)
             if (PyErr_Occurred())
                 goto code_error;
 
-            // assert(nrefs == 0);
-
             argcount = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
@@ -1437,7 +1461,6 @@ r_object(RFILE *p)
             PyCodeObject *to_update = NULL;
 
             if (p->ctx != NULL && p->ctx->code == NULL) {
-                // printf("Loading lazy\n");
                 assert(nrefs == 0);
                 p->ptr = save_ptr + datasize;
 
@@ -1446,7 +1469,6 @@ r_object(RFILE *p)
             }
             else {
                 if (p->ctx != NULL && p->ctx->code != NULL) {
-                    // printf("Rehydrating\n");
                     to_update = p->ctx->code;
                     p->ctx->code = NULL;
                 }
@@ -1666,9 +1688,10 @@ PyMarshal_ReadObjectFromFile(FILE *fp)
     rf.ptr = rf.end = NULL;
     rf.buf = NULL;
     rf.refs = PyList_New(0);
-    rf.ctx = NULL;
     if (rf.refs == NULL)
         return NULL;
+    rf.refs_pos = 0;
+    rf.ctx = NULL;
     result = read_object(&rf);
     Py_DECREF(rf.refs);
     if (rf.buf != NULL)
@@ -1690,6 +1713,7 @@ PyMarshal_ReadObjectFromString(const char *str, Py_ssize_t len)
     rf.refs = PyList_New(0);
     if (rf.refs == NULL)
         return NULL;
+    rf.refs_pos = 0;
     rf.ctx = NULL;
     result = read_object(&rf);
     Py_DECREF(rf.refs);
@@ -1822,8 +1846,9 @@ marshal_load(PyObject *module, PyObject *file)
         rf.readable = file;
         rf.ptr = rf.end = NULL;
         rf.buf = NULL;
-        rf.ctx = NULL;
         if ((rf.refs = PyList_New(0)) != NULL) {
+            rf.refs_pos = 0;
+            rf.ctx = NULL;
             result = read_object(&rf);
             Py_DECREF(rf.refs);
             if (rf.buf != NULL)
@@ -1886,6 +1911,7 @@ marshal_loads_impl(PyObject *module, Py_buffer *bytes, int lazy)
     rf.depth = 0;
     if ((rf.refs = PyList_New(0)) == NULL)
         return NULL;
+    rf.refs_pos = 0;
     rf.ctx = NULL;
     if (lazy < 0)
         lazy = getenv("LAZY") && *getenv("LAZY");  // TODO: Rename?
@@ -1911,7 +1937,6 @@ marshal_loads_impl(PyObject *module, Py_buffer *bytes, int lazy)
 PyCodeObject *
 _PyCode_Hydrate(PyCodeObject *code)
 {
-    // printf("Hydrating\n");
     struct context *ctx = code->co_hydra_context;
     if (ctx == NULL) {
         // Not dehydrated
