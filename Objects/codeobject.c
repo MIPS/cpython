@@ -366,6 +366,7 @@ init_code(PyCodeObject *co, struct _PyCodeConstructor *con)
     /* hydration */
     co->co_hydra_context = con->hydra_context;
     co->co_hydra_offset = con->hydra_offset;
+    co->co_hydra_refs_pos = con->hydra_refs_pos;
 
     /* derived values */
     co->co_varnames = NULL;

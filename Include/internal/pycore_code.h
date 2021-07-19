@@ -243,8 +243,9 @@ struct _PyCodeConstructor {
     PyObject *exceptiontable;
 
     /* Hydration */
-    struct context *hydra_context;
-    Py_ssize_t hydra_offset;
+    struct context *hydra_context;  // Hydration context
+    Py_ssize_t hydra_offset;  // Index in data stream where to start
+    Py_ssize_t hydra_refs_pos;  // Where to reset refs_pos
 };
 
 // Using an "arguments struct" like this is helpful for maintainability

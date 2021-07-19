@@ -1405,11 +1405,14 @@ r_object(RFILE *p)
             PyObject* columntable = NULL;
             PyObject *exceptiontable = NULL;
             struct _PyCodeConstructor con = { 0 };  // All zeros
+            Py_ssize_t first_ref = -1;
 
+            assert(flag == 0);  // We don't handle references to code objects
             v = NULL;
 
             /* XXX ignore long->int overflows for now */
             const char *save_ptr = p->ptr;
+            Py_ssize_t save_refs_pos = p->refs_pos;
 
             datasize = (int)r_long(p);
             if (PyErr_Occurred())
@@ -1422,9 +1425,8 @@ r_object(RFILE *p)
             if (PyErr_Occurred())
                 goto code_error;
             posonlyargcount = (int)r_long(p);
-            if (PyErr_Occurred()) {
+            if (PyErr_Occurred())
                 goto code_error;
-            }
             kwonlyargcount = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
@@ -1434,10 +1436,10 @@ r_object(RFILE *p)
             flags = (int)r_long(p);
             if (PyErr_Occurred())
                 goto code_error;
-
             firstlineno = (int)r_long(p);
-            if (firstlineno == -1 && PyErr_Occurred())
-                break;
+            if (PyErr_Occurred())
+                goto code_error;
+
             name = r_object(p);
             if (name == NULL)
                 goto code_error;
@@ -1461,14 +1463,21 @@ r_object(RFILE *p)
             PyCodeObject *to_update = NULL;
 
             if (p->ctx != NULL && p->ctx->code == NULL) {
-                assert(nrefs == 0);
-                p->ptr = save_ptr + datasize;
-
+                // Return a dehydrated code object
                 con.hydra_context = p->ctx;
                 con.hydra_offset = save_ptr - 1 - p->ctx->buf;  // Back up over typecode
+                con.hydra_refs_pos = save_refs_pos;
+                p->ptr = save_ptr + datasize;
+                while (p->refs_pos < save_refs_pos + nrefs) {
+                    Py_ssize_t ref = r_ref_reserve(FLAG_REF, p);
+                    if (first_ref < 0)
+                        first_ref = ref;
+                }
+                // We'll call r_ref_insert() below
             }
             else {
                 if (p->ctx != NULL && p->ctx->code != NULL) {
+                    // Rehydrating
                     to_update = p->ctx->code;
                     p->ctx->code = NULL;
                 }
@@ -1511,7 +1520,7 @@ r_object(RFILE *p)
                 con.exceptiontable = exceptiontable;
 
                 if (_PyCode_Validate(&con) < 0) {
-                    printf("Failed to validate\n");
+                    printf("Failed to validate code object\n");  // TODO: delete
                     goto code_error;
                 }
             };
@@ -1523,11 +1532,17 @@ r_object(RFILE *p)
                 v = (PyObject *)_PyCode_New(&con);
             }
             if (v == NULL) {
-                printf("Failed to create\n");
+                printf("Failed to create code object\n");  // TODO: delete
                 goto code_error;
             }
 
-            v = r_ref_insert(v, idx, flag, p);  // TODO: NO
+            if (first_ref >= 0) {
+                // Overwrite skipped references with v
+                assert(p->ctx != NULL && p->ctx->code == NULL);
+                while (first_ref < p->refs_pos) {
+                    r_ref_insert(v, first_ref++, FLAG_REF, p);
+                }
+            }
 
           code_error:
             Py_XDECREF(code);
@@ -1960,6 +1975,7 @@ _PyCode_Hydrate(PyCodeObject *code)
     rf.end = s + n;
     rf.depth = 0;
     rf.refs = ctx->refs;
+    rf.refs_pos = code->co_hydra_refs_pos;
     rf.ctx = ctx;
     ctx->code = code;
 

@@ -112,6 +112,7 @@ struct PyCodeObject {
     /* Hydration */
     struct context *co_hydra_context;
     Py_ssize_t co_hydra_offset;
+    Py_ssize_t co_hydra_refs_pos;
 
 };
 
