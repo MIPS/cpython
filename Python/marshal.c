@@ -1569,7 +1569,25 @@ r_object(RFILE *p)
             PyErr_SetString(PyExc_ValueError, "bad marshal data (invalid reference)");
             break;
         }
-        v = PyList_GET_ITEM(p->refs, n);
+        for (;;) {
+            v = PyList_GET_ITEM(p->refs, n);
+            if (!PyCode_Check(v))
+                break;
+            PyCodeObject *code = (PyCodeObject *)v;
+            if (_PyCode_IsHydrated(code)) {
+                printf("Not dehydrated!\n");
+                break;
+            }
+            printf("It's a dehydrated code object! %s - %d - %s\n",
+                   PyUnicode_AsUTF8(code->co_filename),
+                   code->co_firstlineno,
+                   PyUnicode_AsUTF8(code->co_qualname));
+            v = (PyObject *)_PyCode_Hydrate(code);
+            if (v == NULL)
+                break;
+        }
+        if (v == NULL)
+            break;
         if (v == Py_None) {
             PyErr_SetString(PyExc_ValueError, "bad marshal data (invalid reference)");
             break;
