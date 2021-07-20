@@ -1578,10 +1578,10 @@ r_object(RFILE *p)
                 printf("Not dehydrated!\n");
                 break;
             }
-            printf("It's a dehydrated code object! %s - %d - %s\n",
-                   PyUnicode_AsUTF8(code->co_filename),
-                   code->co_firstlineno,
-                   PyUnicode_AsUTF8(code->co_qualname));
+            // printf("It's a dehydrated code object! %s - %d - %s\n",
+            //        PyUnicode_AsUTF8(code->co_filename),
+            //        code->co_firstlineno,
+            //        PyUnicode_AsUTF8(code->co_qualname));
             v = (PyObject *)_PyCode_Hydrate(code);
             if (v == NULL)
                 break;
