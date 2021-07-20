@@ -563,7 +563,6 @@ w_complex_object(PyObject *v, char flag, WFILE *p)
         w_object(co->co_filename, p);
 
         w_object(co->co_code, p);
-        w_object(co->co_consts, p);
         w_object(co->co_names, p);
         w_object(co->co_localsplusnames, p);
         w_object(co->co_localspluskinds, p);
@@ -571,6 +570,7 @@ w_complex_object(PyObject *v, char flag, WFILE *p)
         w_object(co->co_endlinetable, p);
         w_object(co->co_columntable, p);
         w_object(co->co_exceptiontable, p);
+        w_object(co->co_consts, p);
         w_backpatch(p, start_pos, start_nrefs);
     }
     else if (PyObject_CheckBuffer(v)) {
@@ -1404,6 +1404,7 @@ r_object(RFILE *p)
             PyObject* endlinetable = NULL;
             PyObject* columntable = NULL;
             PyObject *exceptiontable = NULL;
+            // TODO: Optimization: read most valules directly into 'con'
             struct _PyCodeConstructor con = { 0 };  // All zeros
             Py_ssize_t first_ref = -1;
 
@@ -1484,9 +1485,6 @@ r_object(RFILE *p)
                 code = r_object(p);
                 if (code == NULL)
                     goto code_error;
-                consts = r_object(p);
-                if (consts == NULL)
-                    goto code_error;
                 names = r_object(p);
                 if (names == NULL)
                     goto code_error;
@@ -1507,6 +1505,9 @@ r_object(RFILE *p)
                     goto code_error;
                 exceptiontable = r_object(p);
                 if (exceptiontable == NULL)
+                    goto code_error;
+                consts = r_object(p);
+                if (consts == NULL)
                     goto code_error;
 
                 con.code = code;
