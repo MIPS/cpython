@@ -30,10 +30,12 @@ def speed_comparison(source: str, test_name: str):
 
     def exec_helper(codes, label, timings):
         timings["execs"] = []
+        ns = {}
         for i in range(4):
             t3 = time.perf_counter()
             for code in codes:
-                exec(code, {})
+                exec(code, ns)
+                ns.clear()
             t4 = time.perf_counter()
             print(f"{label} exec #{i+1}: {t4-t3:.3f}")
             timings["execs"].append(t4 - t3)
