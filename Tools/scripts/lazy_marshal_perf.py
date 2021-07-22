@@ -13,14 +13,14 @@ _LOAD_EXEC = "load+exec"
 _STEADY_STATE = "steady-state"
 
 
-def speed_comparison(source: str, test_name: str):
+def speed_comparison(source: str, test_name: str, reps: int):
     print()
     print(f"Starting speed test: {test_name}")
 
     def load_helper(data, label, timings, lazy):
         codes = []
         t0 = time.perf_counter()
-        for _ in range(1000):
+        for _ in range(reps):
             code = marshal.loads(data, lazy=lazy)
             codes.append(code)
         t1 = time.perf_counter()
@@ -90,6 +90,7 @@ def speed_comparison(source: str, test_name: str):
 SpeedTestParams = namedtuple(
     "SpeedTestParams",
     [
+        "num_reps",
         "num_funcs",
         "func_length",
         "num_vars",
@@ -102,6 +103,7 @@ SpeedTestParams = namedtuple(
 
 
 def test_name(p: SpeedTestParams):
+    nreps = p.num_reps
     nfuncs = p.num_funcs
     nvars = p.num_vars
     scope = "locals" if p.is_locals else "globals"
@@ -110,7 +112,7 @@ def test_name(p: SpeedTestParams):
     consts = "consts" if p.is_vary_constants else ""
     return (
         f"{shared:6} {is_call:4} {scope:7} {consts:6} "
-        f"{nfuncs:4} funcs, {nvars:4} vars"
+        f"{nfuncs:4} funcs, {nvars:4} vars, {nreps:4} reps"
     )
 
 
@@ -162,6 +164,7 @@ class SpeedTestBuilder:
 def run_tests():
     results = {}
     for params in itertools.product(
+        [1000],  # num_reps
         [100],  # num_funcs
         [100],  # func_length
         [10, 100],  # num_vars
@@ -174,7 +177,7 @@ def run_tests():
         while gc.collect():
             pass
         builder = SpeedTestBuilder(p)
-        results[p] = speed_comparison(builder.get_source(), test_name(p))
+        results[p] = speed_comparison(builder.get_source(), test_name(p), p.num_reps)
     return results
 
 
