@@ -676,8 +676,7 @@ hydration_ctx_dealloc(_PyHydrationContext *self)
     Py_XDECREF(self->obj);
     Py_XDECREF(self->refs);
     Py_XDECREF(self->code);
-    // TODO: why does this segfault?
-    // Py_TYPE(self)->tp_free((PyObject *)self);
+    PyObject_Free(self);
 }
 
 PyTypeObject _PyHydrationContext_Type;
@@ -2068,7 +2067,6 @@ _PyCode_Hydrate(PyCodeObject *code)
     rf.end = s + n;
     rf.depth = 0;
     rf.refs = ctx->refs;
-    Py_XINCREF(rf.refs);
     rf.refs_pos = code->co_hydra_refs_pos;
     rf.ctx = ctx;
     ctx->code = code;
