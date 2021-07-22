@@ -2035,9 +2035,7 @@ marshal_loads_impl(PyObject *module, Py_buffer *bytes, int lazy)
         }
     }
     result = read_object(&rf);
-    if (lazy) {
-        Py_DECREF(rf.ctx);
-    }
+    Py_XDECREF(rf.ctx);
     return result;
 }
 
