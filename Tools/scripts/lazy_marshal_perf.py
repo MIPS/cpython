@@ -194,7 +194,7 @@ def write_csv(results: dict, filename: str):
 
 
 def print_summary(results: dict):
-    print(f"{' ':50}{_LOAD_EXEC:>15}{'steady state':>15}")
+    print(f"{' ':60}{_LOAD_EXEC:>15}{'steady state':>15}")
     for p, r in sorted(results.items(), key=lambda kv: -kv[1][_LOAD_EXEC]):
         name = test_name(p)
         print(f"{name:50}{r[_LOAD_EXEC]:15.3f}{r[_STEADY_STATE]:15.3f}")
