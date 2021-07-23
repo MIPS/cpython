@@ -1480,7 +1480,11 @@ r_object(RFILE *p)
             struct _PyCodeConstructor con = { 0 };  // All zeros
             Py_ssize_t first_ref = -1;
 
-            assert(flag == 0);  // We don't handle references to code objects
+            if (flag != 0) {
+                PyErr_BadArgument();
+                return NULL;
+            }
+
             v = NULL;
 
             /* XXX ignore long->int overflows for now */
@@ -2073,6 +2077,7 @@ _PyCode_Hydrate(PyCodeObject *code)
 
     PyObject *result = read_object(&rf);
     Py_XDECREF(rf.refs);
+    assert(result == NULL || code->co_hydra_context == NULL);
     Py_XDECREF(code->co_hydra_context);
     code->co_hydra_context = NULL;
     Py_XDECREF(ctx->code);
