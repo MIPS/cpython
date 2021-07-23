@@ -364,7 +364,7 @@ init_code(PyCodeObject *co, struct _PyCodeConstructor *con)
     co->co_exceptiontable = con->exceptiontable;
 
     /* hydration */
-    Py_XINCREF(co->co_hydra_context);
+    Py_XINCREF(con->hydra_context);
     co->co_hydra_context = con->hydra_context;
     co->co_hydra_offset = con->hydra_offset;
     co->co_hydra_refs_pos = con->hydra_refs_pos;
