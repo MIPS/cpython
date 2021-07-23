@@ -2075,7 +2075,7 @@ _PyCode_Hydrate(PyCodeObject *code)
     Py_XDECREF(rf.refs);
     Py_XDECREF(code->co_hydra_context);
     code->co_hydra_context = NULL;
-    Py_DECREF(ctx->code);
+    Py_XDECREF(ctx->code);
     ctx->code = NULL;
     assert(result == NULL || PyCode_Check(result));
     return (PyCodeObject *)result;
