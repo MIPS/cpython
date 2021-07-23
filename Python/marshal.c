@@ -2028,7 +2028,6 @@ marshal_loads_impl(PyObject *module, Py_buffer *bytes, int lazy)
     if (lazy) {
         rf.ctx = _PyHydrationContext_new(
             bytes->obj, s, n, rf.refs);
-        Py_DECREF(rf.refs);
         if (rf.ctx == NULL) {
             PyErr_NoMemory();
             return NULL;
@@ -2036,6 +2035,7 @@ marshal_loads_impl(PyObject *module, Py_buffer *bytes, int lazy)
     }
     result = read_object(&rf);
     Py_XDECREF(rf.ctx);
+    Py_XDECREF(rf.refs);
     return result;
 }
 
@@ -2065,12 +2065,15 @@ _PyCode_Hydrate(PyCodeObject *code)
     rf.end = s + n;
     rf.depth = 0;
     rf.refs = ctx->refs;
+    Py_XINCREF(rf.refs);
     rf.refs_pos = code->co_hydra_refs_pos;
     rf.ctx = ctx;
     ctx->code = code;
 
     PyObject *result = read_object(&rf);
-    Py_XDECREF(ctx);
+    Py_XINCREF(rf.refs);
+    Py_XDECREF(code->co_hydra_context);
+    code->co_hydra_context = NULL;
     ctx->code = NULL;
     assert(result == NULL || PyCode_Check(result));
     return (PyCodeObject *)result;
