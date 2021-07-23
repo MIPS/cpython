@@ -2068,14 +2068,14 @@ _PyCode_Hydrate(PyCodeObject *code)
     Py_XINCREF(rf.refs);
     rf.refs_pos = code->co_hydra_refs_pos;
     rf.ctx = ctx;
-    Py_XINCREF(code);
+    Py_INCREF(code);
     ctx->code = code;
 
     PyObject *result = read_object(&rf);
     Py_XDECREF(rf.refs);
     Py_XDECREF(code->co_hydra_context);
     code->co_hydra_context = NULL;
-    Py_XDECREF(ctx->code);
+    Py_DECREF(ctx->code);
     ctx->code = NULL;
     assert(result == NULL || PyCode_Check(result));
     return (PyCodeObject *)result;
