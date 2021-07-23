@@ -1538,20 +1538,15 @@ code_richcompare(PyObject *self, PyObject *other, int op)
 static Py_hash_t
 code_hash(PyCodeObject *co)
 {
-    Py_hash_t h, h0, h1, h2, h3, h4;
-    h0 = PyObject_Hash(co->co_name);
+    // Hash only fields that are set even on dehydrated code objects.
+    Py_hash_t h, h0, h1;
+    h0 = PyObject_Hash(co->co_qualname);
     if (h0 == -1) return -1;
-    h1 = PyObject_Hash(co->co_code);
+    h1 = PyObject_Hash(co->co_filename);
     if (h1 == -1) return -1;
-    h2 = PyObject_Hash(co->co_consts);
-    if (h2 == -1) return -1;
-    h3 = PyObject_Hash(co->co_names);
-    if (h3 == -1) return -1;
-    h4 = PyObject_Hash(co->co_localsplusnames);
-    if (h4 == -1) return -1;
-    h = h0 ^ h1 ^ h2 ^ h3 ^ h4 ^
+    h = h0 ^ h1 ^
         co->co_argcount ^ co->co_posonlyargcount ^ co->co_kwonlyargcount ^
-        co->co_flags;
+        co->co_flags ^ co->co_firstlineno;
     if (h == -1) h = -2;
     return h;
 }
