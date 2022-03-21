@@ -1,6 +1,7 @@
 import unittest
 from test.support.import_helper import import_module
 from test.support import check_sanitizer
+from test.support.runner import main
 
 if check_sanitizer(address=True, memory=True):
     raise unittest.SkipTest("Tests involvin libX11 can SEGFAULT on ASAN/MSAN builds")
@@ -23,6 +24,6 @@ from idlelib.idle_test import load_tests
 
 if __name__ == '__main__':
     tk.NoDefaultRoot()
-    unittest.main(exit=False)
+    main(exit=False)
     tk._support_default_root = True
     tk._default_root = None
