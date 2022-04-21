@@ -17,8 +17,12 @@ coverage:
   round: down
   status:
     changes: off
-    project: off
-    patch: off
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
 parsers:
   gcov:
     branch_detection:
